@@ -24,7 +24,7 @@ def build_user_claims(db: Session, user: User) -> dict:
     empleado = _employee_with_relations(db, user.id)
 
     if empleado:
-        full_name = f"{user.first_name} {empleado.apellido_p}".strip()
+        full_name = (empleado.nombre_completo or user.first_name or user.username).strip()
         role_names = [rol.nombre for rol in empleado.roles]
         return {
             "username": user.username,
@@ -35,9 +35,6 @@ def build_user_claims(db: Session, user: User) -> dict:
             "roles": role_names,
             "is_admin": bool(user.is_staff),
             "empleado_id": empleado.id,
-            "theme_preference": empleado.theme_preference,
-            "theme_custom_color": empleado.theme_custom_color,
-            "theme_glow_enabled": bool(empleado.theme_glow_enabled),
             "foto_perfil": empleado.foto_perfil,
         }
 
@@ -50,9 +47,6 @@ def build_user_claims(db: Session, user: User) -> dict:
         "roles": [],
         "is_admin": bool(user.is_staff),
         "empleado_id": None,
-        "theme_preference": None,
-        "theme_custom_color": None,
-        "theme_glow_enabled": None,
         "foto_perfil": None,
     }
 

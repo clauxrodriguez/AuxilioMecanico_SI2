@@ -1,0 +1,59 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'providers/auth_provider.dart';
+import 'screens/auth/login_screen.dart';
+import 'screens/admin/admin_home_screen.dart';
+import 'screens/employee/employee_home_screen.dart';
+import 'core/theme.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => AuthProvider(),
+      child: MaterialApp(
+        title: 'Auxilio Mecánico',
+        theme: AppTheme.lightTheme,
+        debugShowCheckedModeBanner: false,
+        home: const AuthCheck(),
+      ),
+    );
+  }
+}
+
+/// Widget que verifica el estado de autenticación y redirige a la pantalla correspondiente
+class AuthCheck extends StatelessWidget {
+  const AuthCheck({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
+
+    if (authProvider.isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!authProvider.isAuthenticated) {
+      return const LoginScreen();
+    }
+
+    // Redirige según el rol del usuario
+    final userRole = authProvider.userRole;
+    if (userRole == 'admin') {
+      return const AdminHomeScreen();
+    } else if (userRole == 'empleado') {
+      return const EmployeeHomeScreen();
+    }
+
+    return const LoginScreen();
+  }
+}

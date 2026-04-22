@@ -4,6 +4,20 @@ export interface Permiso {
   descripcion: string;
 }
 
+export interface Cargo {
+  id: string;
+  empresa: string;
+  nombre: string;
+  descripcion: string | null;
+}
+
+export interface Servicio {
+  id_servicio: string;
+  nombre: string;
+  descripcion: string | null;
+  activo: boolean;
+}
+
 export interface Rol {
   id: string;
   empresa: string;
@@ -17,26 +31,21 @@ export interface Usuario {
   first_name: string;
   last_name: string;
   email: string;
+  is_active: boolean;
 }
 
 export interface Empleado {
   id: string;
   usuario: Usuario;
   ci: string;
-  apellido_p: string;
-  apellido_m: string;
+  nombre_completo: string;
   direccion: string | null;
   telefono: string | null;
   sueldo: number;
   cargo: string | null;
-  departamento: string | null;
   empresa: string;
   foto_perfil: string | null;
-  theme_preference: string | null;
-  theme_custom_color: string | null;
-  theme_glow_enabled: boolean;
   roles: string[];
   roles_asignados: Rol[];
   cargo_nombre: string | null;
-  departamento_nombre: string | null;
 }

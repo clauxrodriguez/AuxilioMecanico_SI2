@@ -83,6 +83,36 @@ Copy-Item .env.example .env
 - `SECRET_KEY`: clave segura para JWT.
 - `CORS_ORIGINS`: origenes permitidos del frontend.
 - `MEDIA_ROOT`: ruta donde se guardan archivos subidos.
+- `FRONTEND_BASE_URL`: URL del frontend para construir enlaces de invitacion.
+
+## Configuracion SMTP (invitaciones de empleados)
+
+Para que el correo de invitacion funcione, completa estas variables en `.env`:
+
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_USERNAME`
+- `SMTP_PASSWORD`
+- `SMTP_USE_TLS`
+- `SMTP_FROM_EMAIL`
+
+Ejemplo (Gmail con App Password):
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=tu_correo@gmail.com
+SMTP_PASSWORD=tu_app_password
+SMTP_USE_TLS=true
+SMTP_FROM_EMAIL=tu_correo@gmail.com
+FRONTEND_BASE_URL=http://localhost:4200
+```
+
+Notas:
+
+- Con Gmail debes usar App Password (no la contrasena normal).
+- Si `SMTP_HOST` esta vacio, el backend crea el empleado pero no envia correo.
+- El enlace de invitacion usa la ruta frontend: `/activate-invite?token=...`.
 
 ## Migraciones (Alembic)
 
@@ -112,11 +142,11 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
 - Auth:
   - `POST /token/`
   - `POST /token/refresh/`
+  - `POST /register/company/`
+  - `POST /register/admin/`
+  - `POST /employee-invitations/activate/`
   - `POST /register/`
   - `GET /my-permissions/`
-- Tema:
-  - `GET /me/theme/`
-  - `PATCH /me/theme/`
 - Empleados:
   - `GET /empleados/`
   - `GET /empleados/{empleado_id}/`
