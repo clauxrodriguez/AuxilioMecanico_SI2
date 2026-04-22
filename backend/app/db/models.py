@@ -154,3 +154,29 @@ class Suscripcion(Base):
     max_activos: Mapped[int] = mapped_column(Integer, default=50)
 
     empresa: Mapped[Empresa] = relationship(back_populates="suscripcion")
+
+
+class Cliente(Base):
+    __tablename__ = "api_cliente"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(150), nullable=False)
+    email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    telefono: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    vehiculos: Mapped[list["Vehiculo"]] = relationship(back_populates="cliente")
+
+
+class Vehiculo(Base):
+    __tablename__ = "api_vehiculo"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    cliente_id: Mapped[str] = mapped_column(String(36), ForeignKey("api_cliente.id", ondelete="CASCADE"), nullable=False)
+    anio: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    placa: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    marca: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    modelo: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    principal: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    cliente: Mapped[Cliente] = relationship(back_populates="vehiculos")

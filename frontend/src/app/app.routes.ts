@@ -6,6 +6,8 @@ import { MainLayoutComponent } from './layouts/main-layout/main-layout.component
 import { EmpleadoComponent } from './components/empleado/empleado.component';
 import { RolComponent } from './components/rol/rol.component';
 import { PermisoComponent } from './components/permisos/permiso.component';
+import { ClientesComponent } from './components/clientes/clientes.component';
+import { ClienteDetailComponent } from './components/clientes/cliente-detail.component';
 
 export const appRoutes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -18,6 +20,8 @@ export const appRoutes: Routes = [
       { path: 'empleados', component: EmpleadoComponent },
       { path: 'roles', component: RolComponent },
       { path: 'permisos', component: PermisoComponent },
+      { path: 'clientes', component: ClientesComponent },
+      { path: 'clientes/:id', component: ClienteDetailComponent },
     ],
   },
   { path: '', pathMatch: 'full', redirectTo: 'app' },

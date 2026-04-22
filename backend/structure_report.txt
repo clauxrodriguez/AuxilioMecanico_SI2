@@ -1,0 +1,94 @@
+Informe de estructura del proyecto (generado automáticamente)
+
+Resumen general de carpetas en `backend/`:
+- alembic.ini, alembic/: archivos y scripts de migraciones de base de datos (Alembic).
+- requirements.txt: dependencias de Python.
+- README.md: documentación del backend.
+
+Carpeta `app/` (contiene la aplicación FastAPI):
+- __init__.py: marca el paquete `app`.
+- main.py: punto de entrada de la aplicación FastAPI.
+
+Subcarpetas dentro de `app/`:
+- core/
+  - config.py: configuración global (BaseSettings).
+  - security.py: utilidades y configuraciones de seguridad (JWT, hashing).
+- db/
+  - models.py: modelos SQLAlchemy y definiciones ORM.
+  - session.py: fábrica de sesiones / configuración del motor DB.
+- deps/
+  - auth.py: dependencias para autorización/autenticación (por ejemplo, `get_current_user`).
+- routers/
+  - auth.py: endpoints relacionados con autenticación (login, token).
+  - empleados.py: endpoints para operaciones sobre empleados.
+  - permisos.py: endpoints para permisos.
+  - roles.py: endpoints para roles.
+- schemas/
+  - auth.py: esquemas Pydantic para auth (login, token responses).
+  - common.py: esquemas compartidos.
+  - empleado.py: Pydantic models para empleados.
+  - permiso.py: Pydantic models para permisos.
+  - register.py: esquemas de registro.
+  - role.py: esquema para roles.
+  - theme.py: esquema para temas (UI/UX?)
+- services/
+  - auth_service.py: lógica de negocio para autenticación.
+  - file_storage.py: manejo de archivos y almacenamiento.
+  - permission_service.py: lógica sobre permisos.
+  - user_management.py: lógica para gestión de usuarios/empleados.
+
+Recomendación para reorganizar a la estructura propuesta (`src/ {domain}/ ...`):
+- Sí, conviene reorganizar para seguir la convención basada en dominios (feature-based). Ventajas:
+  - Mejora la cohesión: los routers, modelos, esquemas y servicios de un dominio permanecen juntos.
+  - Facilita el mantenimiento y escalado (añadir dominios o extraer paquetes).
+
+Mapeo sugerido (mínimo y no disruptivo):
+- Crear `src/` (o renombrar `app/` a `src/`) y dentro crear carpetas por dominio:
+  - `src/auth/`:
+    - mover `routers/auth.py` -> `src/auth/router.py`
+    - mover `schemas/auth.py` -> `src/auth/schemas.py`
+    - mover lógica de `services/auth_service.py` -> `src/auth/service.py`
+    - mover dependencias `deps/auth.py` -> `src/auth/dependencies.py`
+    - mover seguridad `core/security.py` -> `src/auth/utils.py` o `src/auth/security.py`
+    - si hay `core/config.py` específico, crear `src/auth/config.py` o usar configuración global.
+  - `src/empleados/` (o `src/users/`):
+    - `routers/empleados.py` -> `src/empleados/router.py`
+    - `schemas/empleado.py` -> `src/empleados/schemas.py`
+    - `services/user_management.py` -> `src/empleados/service.py`
+    - `db/models.py` (si modelos específicos) -> `src/empleados/models.py` (o mantener `src/models.py` compartido si usado por varios dominios)
+  - `src/permisos/`:
+    - `routers/permisos.py` -> `src/permisos/router.py`
+    - `schemas/permiso.py` -> `src/permisos/schemas.py`
+    - `services/permission_service.py` -> `src/permisos/service.py`
+  - `src/roles/`:
+    - `routers/roles.py` -> `src/roles/router.py`
+    - `schemas/role.py` -> `src/roles/schemas.py`
+    - cualquier lógica relacionada -> `src/roles/service.py`
+  - Recursos compartidos:
+    - `core/config.py` -> `src/config.py` (global BaseSettings)
+    - `db/session.py` -> `src/database.py` (motor y sesión)
+    - `db/models.py` -> `src/models.py` (bases ORM compartidas)
+    - `schemas/common.py` -> `src/models.py` o `src/schemas_common.py` según convenga
+    - `services/file_storage.py` -> `src/utils/file_storage.py` o `src/common/file_storage.py`
+    - `app/main.py` -> `src/main.py` (mantener FastAPI app y lifespan)
+
+Cambios recomendados (prioridad y notas):
+- Prioridad alta:
+  - Mover `main.py`, `core/config.py`, `db/session.py` a la raíz `src/` como `main.py`, `config.py`, `database.py`.
+  - Agrupar endpoints, esquemas y servicios por dominio (auth, empleados, permisos, roles).
+- Prioridad media:
+  - Refactor pequeño de imports: usar `from src.auth import router` en `main.py`.
+  - Consolidar modelos compartidos en `src/models.py`.
+- Prioridad baja:
+  - Revisar `theme.py` y decidir si pertenece a un dominio frontend/UX; si solo es un esquema ligero, mantener en `src/common`.
+
+Impacto esperado y precauciones:
+- Cambiar rutas de import requiere actualizar todos los imports (p. ej. `from app.schemas.auth import X` -> `from src.auth.schemas import X`). Recomiendo usar búsquedas/regex para actualizarlos.
+- Mantener un periodo corto de compatibilidad: crear `app/compat.py` que haga alias imports si otros scripts externos esperan `app.*`.
+- Ejecutar pruebas y la aplicación en entorno virtual para detectar errores de importación.
+
+Siguiente paso que puedo hacer ahora si quieres:
+- Generar automáticamente la estructura de carpetas `src/` y mover los archivos sugeridos (crear PR con cambios).
+- O generar un script de migración de imports (sed/PowerShell) para actualizar rutas.
+
+Fecha del informe: 21-04-2026

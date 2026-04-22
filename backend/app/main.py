@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import get_settings
-from app.routers import auth, empleados, permisos, roles
+from app.routers import auth, empleados, permisos, roles, clientes, vehiculos
 
 settings = get_settings()
 
@@ -27,6 +27,8 @@ app.include_router(auth.router)
 app.include_router(permisos.router)
 app.include_router(roles.router)
 app.include_router(empleados.router)
+app.include_router(clientes.router)
+app.include_router(vehiculos.router)
 
 media_root = Path(settings.media_root)
 media_root.mkdir(parents=True, exist_ok=True)
