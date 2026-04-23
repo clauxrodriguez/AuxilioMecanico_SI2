@@ -6,6 +6,8 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core.config import get_settings
 from app.routers import auth, empleados, permisos, roles, clientes, vehiculos
+from app.routers import auth, cargos, empleados, permisos, roles, servicios
+
 
 settings = get_settings()
 
@@ -24,12 +26,19 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(auth.router, prefix="/api/auth")
+app.include_router(cargos.router)
+app.include_router(cargos.router, prefix="/api")
 app.include_router(permisos.router)
+app.include_router(permisos.router, prefix="/api")
 app.include_router(roles.router)
+app.include_router(roles.router, prefix="/api")
 app.include_router(empleados.router)
 app.include_router(clientes.router)
 app.include_router(vehiculos.router)
-
+app.include_router(empleados.router, prefix="/api")
+app.include_router(servicios.router)
+app.include_router(servicios.router, prefix="/api")
 media_root = Path(settings.media_root)
 media_root.mkdir(parents=True, exist_ok=True)
 app.mount(settings.media_url, StaticFiles(directory=media_root), name="media")

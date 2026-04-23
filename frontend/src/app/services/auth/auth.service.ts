@@ -5,7 +5,16 @@ import { Router } from '@angular/router';
 import { jwtDecode } from 'jwt-decode';
 
 import { environment } from '../../../environments/environment';
-import { DecodedToken, LoginRequest, TokenResponse } from '../../models/auth.models';
+import {
+  DecodedToken,
+  EmployeeInvitationActivateRequest,
+  LoginRequest,
+  RegisterAdminRequest,
+  RegisterCompanyRequest,
+  RegisterCompanyResponse,
+  RegisterEmpresaRequest,
+  TokenResponse,
+} from '../../models/auth.models';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -45,6 +54,31 @@ export class AuthService {
 
   login(payload: LoginRequest): Observable<TokenResponse> {
     return this.http.post<TokenResponse>(`${environment.apiBaseUrl}/token/`, payload).pipe(
+      tap((tokens) => this.applyTokens(tokens)),
+      switchMap((tokens) => this.loadMyPermissions().pipe(switchMap(() => of(tokens)))),
+    );
+  }
+
+  register(payload: RegisterEmpresaRequest): Observable<TokenResponse> {
+    return this.http.post<TokenResponse>(`${environment.apiBaseUrl}/register/`, payload).pipe(
+      tap((tokens) => this.applyTokens(tokens)),
+      switchMap((tokens) => this.loadMyPermissions().pipe(switchMap(() => of(tokens)))),
+    );
+  }
+
+  registerCompany(payload: RegisterCompanyRequest): Observable<RegisterCompanyResponse> {
+    return this.http.post<RegisterCompanyResponse>(`${environment.apiBaseUrl}/register/company/`, payload);
+  }
+
+  registerAdmin(payload: RegisterAdminRequest): Observable<TokenResponse> {
+    return this.http.post<TokenResponse>(`${environment.apiBaseUrl}/register/admin/`, payload).pipe(
+      tap((tokens) => this.applyTokens(tokens)),
+      switchMap((tokens) => this.loadMyPermissions().pipe(switchMap(() => of(tokens)))),
+    );
+  }
+
+  activateEmployeeInvitation(payload: EmployeeInvitationActivateRequest): Observable<TokenResponse> {
+    return this.http.post<TokenResponse>(`${environment.apiBaseUrl}/employee-invitations/activate/`, payload).pipe(
       tap((tokens) => this.applyTokens(tokens)),
       switchMap((tokens) => this.loadMyPermissions().pipe(switchMap(() => of(tokens)))),
     );

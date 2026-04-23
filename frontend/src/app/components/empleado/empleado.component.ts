@@ -4,7 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
 import { AuthService } from '../../services/auth/auth.service';
 import { UserManagementApiService } from '../../services/user-management-api.service';
-import { Empleado, Rol } from '../../models/user-management.models';
+import { Cargo, Empleado, Rol } from '../../models/user-management.models';
 
 @Component({
   selector: 'app-empleado',
@@ -25,19 +25,12 @@ import { Empleado, Rol } from '../../models/user-management.models';
         <h3>{{ editingId ? 'Editar empleado' : 'Nuevo empleado' }}</h3>
 
         <div class="form-grid">
-          <div>
-            <label class="label">Usuario</label>
-            <input class="input" formControlName="username" [readonly]="!!editingId" />
-          </div>
-
-          <div>
-            <label class="label">Contrasena {{ editingId ? '(opcional)' : '' }}</label>
-            <input class="input" type="password" formControlName="password" />
-          </div>
-
-          <div>
-            <label class="label">Nombre</label>
-            <input class="input" formControlName="first_name" />
+          <div class="full-width">
+            <label class="label">Nombre completo <span style="color: red;">*</span></label>
+            <input class="input" formControlName="nombre_completo" />
+            <small class="error" *ngIf="form.get('nombre_completo')?.invalid && form.get('nombre_completo')?.touched">
+              Este campo es requerido
+            </small>
           </div>
 
           <div>
@@ -48,16 +41,6 @@ import { Empleado, Rol } from '../../models/user-management.models';
           <div>
             <label class="label">CI</label>
             <input class="input" formControlName="ci" />
-          </div>
-
-          <div>
-            <label class="label">Apellido paterno</label>
-            <input class="input" formControlName="apellido_p" />
-          </div>
-
-          <div>
-            <label class="label">Apellido materno</label>
-            <input class="input" formControlName="apellido_m" />
           </div>
 
           <div>
@@ -76,13 +59,13 @@ import { Empleado, Rol } from '../../models/user-management.models';
           </div>
 
           <div>
-            <label class="label">Cargo ID (opcional)</label>
-            <input class="input" formControlName="cargo" />
-          </div>
-
-          <div>
-            <label class="label">Departamento ID (opcional)</label>
-            <input class="input" formControlName="departamento" />
+            <label class="label">Cargo</label>
+            <select class="input" formControlName="cargo">
+              <option value="">Sin cargo</option>
+              <option *ngFor="let cargo of cargosCatalogo" [value]="cargo.id">
+                {{ cargo.nombre }}
+              </option>
+            </select>
           </div>
 
           <div>
@@ -104,7 +87,7 @@ import { Empleado, Rol } from '../../models/user-management.models';
         </fieldset>
 
         <div class="actions">
-          <button class="btn btn-primary" [disabled]="loading || form.invalid">Guardar</button>
+          <button type="submit" class="btn btn-primary" [disabled]="loading || form.invalid">Guardar</button>
           <button class="btn btn-ghost" type="button" (click)="resetForm()">Cancelar</button>
         </div>
       </form>
@@ -116,18 +99,16 @@ import { Empleado, Rol } from '../../models/user-management.models';
             <th>Nombre</th>
             <th>Email</th>
             <th>Cargo</th>
-            <th>Departamento</th>
             <th>Roles</th>
             <th *ngIf="canManage">Acciones</th>
           </tr>
         </thead>
         <tbody>
           <tr *ngFor="let emp of empleados">
-            <td>{{ emp.usuario.username }}</td>
-            <td>{{ emp.usuario.first_name }} {{ emp.apellido_p }}</td>
+            <td>{{ emp.usuario.is_active ? emp.usuario.username : 'Pendiente activacion' }}</td>
+            <td>{{ emp.nombre_completo }}</td>
             <td>{{ emp.usuario.email }}</td>
             <td>{{ emp.cargo_nombre || 'N/A' }}</td>
-            <td>{{ emp.departamento_nombre || 'N/A' }}</td>
             <td>
               <span class="badge" *ngFor="let r of emp.roles_asignados">{{ r.nombre }}</span>
             </td>
@@ -181,14 +162,26 @@ import { Empleado, Rol } from '../../models/user-management.models';
         gap: 0.6rem;
       }
 
+      .full-width {
+        grid-column: 1 / -1;
+      }
+
       .badge {
         margin-right: 0.25rem;
+      }
+
+      small.error {
+        display: block;
+        color: red;
+        font-size: 0.85rem;
+        margin-top: 0.25rem;
       }
     `,
   ],
 })
 export class EmpleadoComponent implements OnInit {
   empleados: Empleado[] = [];
+  cargosCatalogo: Cargo[] = [];
   rolesCatalogo: Rol[] = [];
   selectedRoleIds = new Set<string>();
   selectedFile: File | null = null;
@@ -198,18 +191,13 @@ export class EmpleadoComponent implements OnInit {
   editingId: string | null = null;
 
   readonly form = this.fb.nonNullable.group({
-    username: ['', Validators.required],
-    password: ['', Validators.required],
-    first_name: ['', Validators.required],
+    nombre_completo: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
     ci: ['', Validators.required],
-    apellido_p: ['', Validators.required],
-    apellido_m: ['', Validators.required],
     direccion: [''],
     telefono: [''],
     sueldo: [0, Validators.required],
     cargo: [''],
-    departamento: [''],
   });
 
   constructor(
@@ -242,6 +230,13 @@ export class EmpleadoComponent implements OnInit {
       },
       error: () => undefined,
     });
+
+    this.api.getCargos().subscribe({
+      next: (rows) => {
+        this.cargosCatalogo = rows;
+      },
+      error: () => undefined,
+    });
   }
 
   onFileChange(event: Event): void {
@@ -261,22 +256,14 @@ export class EmpleadoComponent implements OnInit {
   edit(emp: Empleado): void {
     this.editingId = emp.id;
     this.form.patchValue({
-      username: emp.usuario.username,
-      password: '',
-      first_name: emp.usuario.first_name,
+      nombre_completo: emp.nombre_completo,
       email: emp.usuario.email,
       ci: emp.ci,
-      apellido_p: emp.apellido_p,
-      apellido_m: emp.apellido_m,
       direccion: emp.direccion || '',
       telefono: emp.telefono || '',
       sueldo: emp.sueldo,
       cargo: emp.cargo || '',
-      departamento: emp.departamento || '',
     });
-
-    this.form.controls.password.clearValidators();
-    this.form.controls.password.updateValueAndValidity();
 
     this.selectedRoleIds = new Set(emp.roles || emp.roles_asignados.map((r) => r.id));
   }
@@ -286,36 +273,45 @@ export class EmpleadoComponent implements OnInit {
     this.selectedRoleIds = new Set<string>();
     this.selectedFile = null;
     this.form.reset({
-      username: '',
-      password: '',
-      first_name: '',
+      nombre_completo: '',
       email: '',
       ci: '',
-      apellido_p: '',
-      apellido_m: '',
       direccion: '',
       telefono: '',
       sueldo: 0,
       cargo: '',
-      departamento: '',
     });
-
-    this.form.controls.password.setValidators([Validators.required]);
-    this.form.controls.password.updateValueAndValidity();
   }
 
   private buildFormData(): FormData {
     const raw = this.form.getRawValue();
     const data = new FormData();
 
-    Object.entries(raw).forEach(([key, value]) => {
-      if (key === 'password' && this.editingId && !value) {
-        return;
-      }
-      data.append(key, `${value ?? ''}`);
-    });
+    console.log('buildFormData - raw values:', raw);
+
+    data.append('nombre_completo', `${raw.nombre_completo ?? ''}`);
+    data.append('email', `${raw.email ?? ''}`);
+    data.append('ci', `${raw.ci ?? ''}`);
+    data.append('direccion', `${raw.direccion ?? ''}`);
+    data.append('telefono', `${raw.telefono ?? ''}`);
+    data.append('sueldo', `${raw.sueldo ?? 0}`);
+    data.append('cargo', `${raw.cargo ?? ''}`);
+
+    const logFormData = (formData: FormData): Array<[string, FormDataEntryValue]> => {
+      const entries: Array<[string, FormDataEntryValue]> = [];
+
+      formData.forEach((value, key) => {
+        entries.push([key, value]);
+      });
+
+      return entries;
+    };
+
+    console.log('FormData entries:', logFormData(data));
 
     Array.from(this.selectedRoleIds).forEach((roleId) => data.append('roles', roleId));
+
+    console.log('With roles:', logFormData(data));
 
     if (this.selectedFile) {
       data.append('foto_perfil', this.selectedFile);
@@ -325,7 +321,17 @@ export class EmpleadoComponent implements OnInit {
   }
 
   save(): void {
-    if (!this.canManage || this.form.invalid) {
+    console.log('Save clicked - canManage:', this.canManage, 'form.invalid:', this.form.invalid);
+    
+    if (!this.canManage) {
+      console.error('No tienes permiso manage_empleado');
+      this.errorMsg = 'No tienes permiso para gestionar empleados.';
+      return;
+    }
+
+    if (this.form.invalid) {
+      console.error('Formulario inválido:', this.form.errors);
+      this.errorMsg = 'Por favor completa todos los campos correctamente.';
       return;
     }
 
@@ -333,17 +339,20 @@ export class EmpleadoComponent implements OnInit {
     this.errorMsg = '';
 
     const payload = this.buildFormData();
+    console.log('Enviando payload...');
     const request$ = this.editingId
       ? this.api.updateEmpleado(this.editingId, payload)
       : this.api.createEmpleado(payload);
 
     request$.subscribe({
       next: () => {
+        console.log('Guardado exitosamente');
         this.loading = false;
         this.resetForm();
         this.fetchAll();
       },
       error: (error) => {
+        console.error('Error al guardar:', error);
         this.loading = false;
         this.errorMsg = error?.error?.detail || 'No se pudo guardar empleado.';
       },

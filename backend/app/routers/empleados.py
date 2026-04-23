@@ -37,22 +37,14 @@ def _resolve_create_payload_from_form(form_data) -> EmpleadoCreate:
     sueldo_raw = form_data.get("sueldo")
 
     return EmpleadoCreate(
-        username=str(form_data.get("username", "")),
-        password=str(form_data.get("password", "")),
-        first_name=str(form_data.get("first_name", "")),
+        nombre_completo=str(form_data.get("nombre_completo", "")),
         email=str(form_data.get("email", "")),
         ci=str(form_data.get("ci", "")),
-        apellido_p=str(form_data.get("apellido_p", "")),
-        apellido_m=str(form_data.get("apellido_m", "")),
         direccion=form_data.get("direccion") or None,
         telefono=form_data.get("telefono") or None,
         sueldo=Decimal(str(sueldo_raw)) if sueldo_raw not in (None, "") else Decimal("0"),
         cargo=form_data.get("cargo") or None,
-        departamento=form_data.get("departamento") or None,
         roles=roles,
-        theme_preference=form_data.get("theme_preference") or None,
-        theme_custom_color=form_data.get("theme_custom_color") or None,
-        theme_glow_enabled=_parse_bool(form_data.get("theme_glow_enabled")),
     )
 
 
@@ -61,24 +53,15 @@ def _resolve_update_payload_from_form(form_data) -> EmpleadoUpdate:
 
     for field in [
         "ci",
-        "apellido_p",
-        "apellido_m",
+        "nombre_completo",
         "direccion",
         "telefono",
         "cargo",
-        "departamento",
-        "first_name",
         "email",
-        "password",
-        "theme_preference",
-        "theme_custom_color",
     ]:
         if field in form_data:
             raw = form_data.get(field)
             update_data[field] = raw if raw != "" else None
-
-    if "theme_glow_enabled" in form_data:
-        update_data["theme_glow_enabled"] = _parse_bool(form_data.get("theme_glow_enabled"))
 
     if "sueldo" in form_data:
         sueldo_raw = form_data.get("sueldo")
@@ -121,7 +104,7 @@ def empleados_list(
 ) -> list[EmpleadoOut]:
     empleado = resolve_employee(db, user)
     empresa_id = resolve_tenant_empresa_id(user, empleado)
-    rows = list_empleados(db, empresa_id)
+    rows = list_empleados(db, empresa_id, exclude_user_id=user.id, exclude_admin_roles=True)
     base_url = get_base_url(request)
     return [_serialize_empleado(row, base_url) for row in rows]
 

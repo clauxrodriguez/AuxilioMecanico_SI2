@@ -3,6 +3,18 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.db.models import Empleado, Rol, Suscripcion, User
 
+ADMIN_ROLE_ALIASES = {"admin", "administrador"}
+ADMIN_BASE_PERMISSIONS = {
+    "manage_cargo",
+    "manage_empleado",
+    "manage_rol",
+    "manage_permiso",
+    "view_cargo",
+    "view_empleado",
+    "view_rol",
+    "view_permiso",
+}
+
 
 def resolve_employee(db: Session, user: User) -> Empleado | None:
     stmt = (
@@ -19,6 +31,8 @@ def get_user_permissions(db: Session, user: User) -> set[str]:
     empleado = resolve_employee(db, user)
     if empleado:
         for role in empleado.roles:
+            if (role.nombre or "").strip().lower() in ADMIN_ROLE_ALIASES:
+                permissions.update(ADMIN_BASE_PERMISSIONS)
             for perm in role.permisos:
                 permissions.add(perm.nombre)
 
