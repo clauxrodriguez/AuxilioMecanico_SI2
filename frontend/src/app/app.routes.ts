@@ -11,6 +11,8 @@ import { RolComponent } from './components/rol/rol.component';
 import { PermisoComponent } from './components/permisos/permiso.component';
 import { ClientesComponent } from './components/clientes/clientes.component';
 import { ClienteDetailComponent } from './components/clientes/cliente-detail.component';
+import { VehiculosComponent } from './components/vehiculos/vehiculos.component';
+import { IncidentesComponent } from './components/incidentes/incidentes.component';
 import { ServicioComponent } from './components/servicio/servicio.component';
 
 export const appRoutes: Routes = [
@@ -31,6 +33,8 @@ export const appRoutes: Routes = [
       { path: 'permisos', component: PermisoComponent },
       { path: 'clientes', component: ClientesComponent },
       { path: 'clientes/:id', component: ClienteDetailComponent },
+      { path: 'vehiculos', component: VehiculosComponent },
+      { path: 'incidentes', component: IncidentesComponent },
     ],
   },
   { path: '**', redirectTo: '' },

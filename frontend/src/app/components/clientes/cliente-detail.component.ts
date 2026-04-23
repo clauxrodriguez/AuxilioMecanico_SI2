@@ -1,14 +1,16 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { HttpClientModule } from '@angular/common/http';
 
-import { ClienteService, Vehiculo } from '../../services/cliente.service';
+import { ClienteApiService } from '../../services/cliente.service';
+import type { ClienteDto, VehiculoDto } from '../../services/cliente.service';
 
 @Component({
   selector: 'app-cliente-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, HttpClientModule],
   template: `
     <div *ngIf="cliente" class="card">
       <h3>Cliente: {{ cliente.nombre }}</h3>
@@ -16,9 +18,10 @@ import { ClienteService, Vehiculo } from '../../services/cliente.service';
 
       <section style="margin-top:1rem">
         <h4>Vehículos</h4>
-        <div *ngIf="cliente.vehiculos.length === 0" class="muted">Sin vehículos.</div>
+        <div *ngIf="loadingVehiculos" class="muted">Cargando vehículos...</div>
+        <div *ngIf="!loadingVehiculos && vehiculos.length === 0" class="muted">Sin vehículos.</div>
         <ul>
-          <li *ngFor="let v of cliente.vehiculos" style="display:flex;justify-content:space-between;align-items:center">
+          <li *ngFor="let v of vehiculos" style="display:flex;justify-content:space-between;align-items:center">
             <div>
               <strong>{{ v.marca }} {{ v.modelo }}</strong>
               <div class="muted">Placa: {{ v.placa }} • Año: {{ v.anio }}</div>
@@ -31,7 +34,7 @@ import { ClienteService, Vehiculo } from '../../services/cliente.service';
         </ul>
 
         <div style="margin-top:1rem">
-          <h5>Agregar vehículo (demo)</h5>
+          <h5>Agregar vehículo</h5>
           <input placeholder="Marca" [(ngModel)]="newMarca" />
           <input placeholder="Modelo" [(ngModel)]="newModelo" />
           <button class="btn" (click)="addVehiculo()">Agregar</button>
@@ -41,35 +44,46 @@ import { ClienteService, Vehiculo } from '../../services/cliente.service';
     <div *ngIf="!cliente" class="muted card">Cliente no encontrado</div>
   `,
 })
-export class ClienteDetailComponent {
-  cliente: any | undefined;
+export class ClienteDetailComponent implements OnInit {
+  cliente: ClienteDto | undefined;
+  vehiculos: VehiculoDto[] = [];
   newMarca = '';
   newModelo = '';
+  loadingVehiculos = false;
 
-  constructor(private route: ActivatedRoute, private svc: ClienteService) {
+  constructor(private route: ActivatedRoute, private api: ClienteApiService) {}
+
+  ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id') || '';
-    this.cliente = this.svc.get(id);
+    if (!id) return;
+    this.api.get(id).subscribe({ next: (c) => (this.cliente = c) });
+    this.loadVehiculos(id);
+  }
+
+  loadVehiculos(id: string) {
+    this.loadingVehiculos = true;
+    this.api.listVehiculos(id).subscribe({
+      next: (rows) => {
+        this.vehiculos = rows || [];
+        this.loadingVehiculos = false;
+      },
+      error: () => (this.loadingVehiculos = false),
+    });
   }
 
   addVehiculo() {
     if (!this.cliente) return;
-    const id = 'v' + Math.floor(Math.random() * 10000);
-    const veh: Vehiculo = { id, marca: this.newMarca || 'Marca', modelo: this.newModelo || 'Modelo' };
-    this.svc.addVehiculo(this.cliente.id, veh);
-    this.cliente = this.svc.get(this.cliente.id);
+    const payload = { marca: this.newMarca || 'Marca', modelo: this.newModelo || 'Modelo' };
+    this.api.createVehiculo(this.cliente.id, payload).subscribe({ next: () => this.loadVehiculos(this.cliente!.id) });
     this.newMarca = '';
     this.newModelo = '';
   }
 
-  setPrincipal(v: Vehiculo) {
-    if (!this.cliente) return;
-    this.svc.setPrincipal(this.cliente.id, v.id);
-    this.cliente = this.svc.get(this.cliente.id);
+  setPrincipal(v: VehiculoDto) {
+    this.api.setPrincipal(v.id).subscribe({ next: () => this.loadVehiculos(v.cliente_id) });
   }
 
-  removeVehiculo(v: Vehiculo) {
-    if (!this.cliente) return;
-    this.svc.deleteVehiculo(this.cliente.id, v.id);
-    this.cliente = this.svc.get(this.cliente.id);
+  removeVehiculo(v: VehiculoDto) {
+    this.api.deleteVehiculo(v.id).subscribe({ next: () => this.loadVehiculos(v.cliente_id) });
   }
 }

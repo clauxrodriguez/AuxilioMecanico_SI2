@@ -1,7 +1,11 @@
+import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
+import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
-export interface Vehiculo {
+export interface VehiculoDto {
   id: string;
+  cliente_id: string;
   anio?: number;
   placa?: string;
   marca?: string;
@@ -9,81 +13,53 @@ export interface Vehiculo {
   principal?: boolean;
 }
 
-export interface Cliente {
+export interface ClienteDto {
   id: string;
   nombre: string;
   email?: string;
   telefono?: string;
   activo?: boolean;
-  vehiculos: Vehiculo[];
 }
 
 @Injectable({ providedIn: 'root' })
-export class ClienteService {
-  private clientes: Cliente[] = [];
+export class ClienteApiService {
+  private base = environment.apiBaseUrl;
 
-  constructor() {
-    // seed some mock data
-    this.clientes = [
-      {
-        id: 'c1',
-        nombre: 'Juan Perez',
-        email: 'juan@example.com',
-        telefono: '+59170000000',
-        activo: true,
-        vehiculos: [
-          { id: 'v1', anio: 2018, placa: 'ABC123', marca: 'Toyota', modelo: 'Corolla', principal: true },
-          { id: 'v2', anio: 2020, placa: 'XYZ987', marca: 'Honda', modelo: 'Civic' },
-        ],
-      },
-      {
-        id: 'c2',
-        nombre: 'María Gomez',
-        email: 'maria@example.com',
-        telefono: '+59171111111',
-        activo: true,
-        vehiculos: [],
-      },
-    ];
+  constructor(private http: HttpClient) {}
+
+  list(): Observable<ClienteDto[]> {
+    return this.http.get<ClienteDto[]>(`${this.base}/clientes/`);
   }
 
-  list(): Cliente[] {
-    return this.clientes;
+  get(id: string): Observable<ClienteDto> {
+    return this.http.get<ClienteDto>(`${this.base}/clientes/${id}/`);
   }
 
-  get(id: string): Cliente | undefined {
-    return this.clientes.find((c) => c.id === id);
+  create(payload: Partial<ClienteDto>) {
+    return this.http.post<ClienteDto>(`${this.base}/clientes/`, payload);
   }
 
-  addVehiculo(clienteId: string, veh: Vehiculo): Vehiculo {
-    const cliente = this.get(clienteId);
-    if (!cliente) throw new Error('Cliente no encontrado');
-    cliente.vehiculos.push(veh);
-    return veh;
+  update(id: string, patch: Partial<ClienteDto>) {
+    return this.http.put<ClienteDto>(`${this.base}/clientes/${id}/`, patch);
   }
 
-  updateVehiculo(clienteId: string, vehiculoId: string, patch: Partial<Vehiculo>): Vehiculo {
-    const cliente = this.get(clienteId);
-    if (!cliente) throw new Error('Cliente no encontrado');
-    const v = cliente.vehiculos.find((x) => x.id === vehiculoId);
-    if (!v) throw new Error('Vehiculo no encontrado');
-    Object.assign(v, patch);
-    return v;
+  listVehiculos(clienteId: string) {
+    return this.http.get<VehiculoDto[]>(`${this.base}/clientes/${clienteId}/vehiculos`);
   }
 
-  deleteVehiculo(clienteId: string, vehiculoId: string) {
-    const cliente = this.get(clienteId);
-    if (!cliente) throw new Error('Cliente no encontrado');
-    cliente.vehiculos = cliente.vehiculos.filter((x) => x.id !== vehiculoId);
+  createVehiculo(clienteId: string, payload: Partial<VehiculoDto>) {
+    return this.http.post<VehiculoDto>(`${this.base}/clientes/${clienteId}/vehiculos`, payload);
   }
 
-  setPrincipal(clienteId: string, vehiculoId: string): Vehiculo {
-    const cliente = this.get(clienteId);
-    if (!cliente) throw new Error('Cliente no encontrado');
-    for (const v of cliente.vehiculos) v.principal = false;
-    const found = cliente.vehiculos.find((x) => x.id === vehiculoId);
-    if (!found) throw new Error('Vehiculo no encontrado');
-    found.principal = true;
-    return found;
+  updateVehiculo(vehiculoId: string, patch: Partial<VehiculoDto>) {
+    return this.http.put<VehiculoDto>(`${this.base}/vehiculos/${vehiculoId}/`, patch);
+  }
+
+  deleteVehiculo(vehiculoId: string) {
+    return this.http.delete(`${this.base}/vehiculos/${vehiculoId}/`);
+  }
+
+  setPrincipal(vehiculoId: string) {
+    return this.http.patch<VehiculoDto>(`${this.base}/vehiculos/${vehiculoId}/principal`, {});
   }
 }

@@ -1,8 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
-import { ClienteService, Cliente } from '../../services/cliente.service';
+import { ClienteApiService } from '../../services/cliente.service';
+import type { ClienteDto } from '../../services/cliente.service';
 
 @Component({
   selector: 'app-clientes',
@@ -12,10 +13,10 @@ import { ClienteService, Cliente } from '../../services/cliente.service';
     <div class="card">
       <header style="display:flex;justify-content:space-between;align-items:center">
         <h3>Clientes</h3>
-        <button class="btn" (click)="addDemo()">Agregar demo</button>
       </header>
 
-      <div *ngIf="clientes.length === 0" class="muted">No hay clientes.</div>
+      <div *ngIf="loading" class="muted">Cargando clientes...</div>
+      <div *ngIf="!loading && clientes.length === 0" class="muted">No hay clientes.</div>
 
       <ul>
         <li *ngFor="let c of clientes" style="margin:0.5rem 0; display:flex; justify-content:space-between; align-items:center">
@@ -32,17 +33,14 @@ import { ClienteService, Cliente } from '../../services/cliente.service';
   `,
   styles: [``],
 })
-export class ClientesComponent {
-  clientes: Cliente[] = [];
+export class ClientesComponent implements OnInit {
+  clientes: ClienteDto[] = [];
+  loading = false;
 
-  constructor(private svc: ClienteService) {
-    this.clientes = this.svc.list();
-  }
+  constructor(private api: ClienteApiService) {}
 
-  addDemo() {
-    const id = 'c' + Math.floor(Math.random() * 1000);
-    const nuevo: Cliente = { id, nombre: 'Nuevo Cliente ' + id, vehiculos: [] };
-    this.svc['clientes'].push(nuevo);
-    this.clientes = this.svc.list();
+  ngOnInit(): void {
+    this.loading = true;
+    this.api.list().subscribe({ next: (c) => { this.clientes = c || []; this.loading = false; }, error: () => (this.loading = false) });
   }
 }

@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import get_settings
-from app.routers import auth, empleados, permisos, roles, clientes, vehiculos
+from app.routers import auth, empleados, permisos, roles, clientes, vehiculos, incidentes
 from app.routers import auth, cargos, empleados, permisos, roles, servicios
 
 
@@ -36,6 +36,7 @@ app.include_router(roles.router, prefix="/api")
 app.include_router(empleados.router)
 app.include_router(clientes.router)
 app.include_router(vehiculos.router)
+app.include_router(incidentes.router)
 app.include_router(empleados.router, prefix="/api")
 app.include_router(servicios.router)
 app.include_router(servicios.router, prefix="/api")
