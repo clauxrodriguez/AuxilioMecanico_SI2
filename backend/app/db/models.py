@@ -155,7 +155,7 @@ class Suscripcion(Base):
 
 
 class Cliente(Base):
-    __tablename__ = "api_cliente"
+    __tablename__ = "cliente"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     nombre: Mapped[str] = mapped_column(String(150), nullable=False)
@@ -167,14 +167,13 @@ class Cliente(Base):
 
 
 class Vehiculo(Base):
-    __tablename__ = "api_vehiculo"
+    __tablename__ = "vehiculo"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    cliente_id: Mapped[str] = mapped_column(String(36), ForeignKey("api_cliente.id", ondelete="CASCADE"), nullable=False)
-    anio: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cliente_id: Mapped[str] = mapped_column(String(36), ForeignKey("cliente.id", ondelete="CASCADE"), nullable=False)
+    ano: Mapped[int | None] = mapped_column(Integer, nullable=True)
     placa: Mapped[str | None] = mapped_column(String(20), nullable=True)
     marca: Mapped[str | None] = mapped_column(String(50), nullable=True)
     modelo: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    principal: Mapped[bool] = mapped_column(Boolean, default=False)
-
+  
     cliente: Mapped[Cliente] = relationship(back_populates="vehiculos")
