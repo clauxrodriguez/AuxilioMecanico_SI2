@@ -51,6 +51,10 @@ export class ClienteApiService {
     return this.http.post<VehiculoDto>(`${this.base}/clientes/${clienteId}/vehiculos`, payload);
   }
 
+  createVehiculoPublic(clienteId: string, payload: Partial<VehiculoDto>) {
+    return this.http.post<VehiculoDto>(`${this.base}/clientes/${clienteId}/vehiculos/public`, payload);
+  }
+
   updateVehiculo(vehiculoId: string, patch: Partial<VehiculoDto>) {
     return this.http.put<VehiculoDto>(`${this.base}/vehiculos/${vehiculoId}/`, patch);
   }
