@@ -12,6 +12,12 @@ class ClienteBase(BaseModel):
 
 class ClienteCreate(ClienteBase):
     pass
+# Use ClienteCreate for registration payload; do not accept password from client.
+
+
+class ClienteLogin(BaseModel):
+    username: str
+    password: str
 
 
 class ClienteUpdate(BaseModel):

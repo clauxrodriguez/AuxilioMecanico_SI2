@@ -21,6 +21,16 @@ export interface ClienteDto {
   activo?: boolean;
 }
 
+export interface TokenResponse {
+  access: string;
+  refresh: string;
+}
+
+export interface TokenResponseWithCreds extends TokenResponse {
+  username?: string;
+  password?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ClienteApiService {
   private base = environment.apiBaseUrl;
@@ -35,8 +45,11 @@ export class ClienteApiService {
     return this.http.get<ClienteDto>(`${this.base}/clientes/${id}/`);
   }
 
-  create(payload: Partial<ClienteDto>) {
-    return this.http.post<ClienteDto>(`${this.base}/clientes/`, payload);
+  // Register a new cliente (mobile) — returns access + refresh tokens
+  create(payload: Partial<ClienteDto> & { password?: string }) {
+    // server now generates password; do not send password from client
+    const { password, ...body } = payload as any;
+    return this.http.post<TokenResponseWithCreds>(`${this.base}/clientes/register`, body);
   }
 
   update(id: string, patch: Partial<ClienteDto>) {
@@ -52,7 +65,8 @@ export class ClienteApiService {
   }
 
   createVehiculoPublic(clienteId: string, payload: Partial<VehiculoDto>) {
-    return this.http.post<VehiculoDto>(`${this.base}/clientes/${clienteId}/vehiculos/public`, payload);
+    // public vehicle-by-client endpoint removed on server
+    throw new Error('createVehiculoPublic removed: use admin vehicle endpoints or a dedicated mobile flow');
   }
 
   updateVehiculo(vehiculoId: string, patch: Partial<VehiculoDto>) {

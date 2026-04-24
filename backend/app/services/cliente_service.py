@@ -16,7 +16,17 @@ def list_clientes(db: Session) -> list[Cliente]:
 
 
 def create_cliente(db: Session, payload: ClienteCreate) -> Cliente:
-    obj = Cliente(id=str(uuid.uuid4()), nombre=payload.nombre, email=str(payload.email) if payload.email else None, telefono=payload.telefono, activo=bool(payload.activo))
+    # generate simple sequential numeric id as string: '1','2','3',...
+    # collect existing numeric ids and pick next
+    try:
+        rows = db.execute(select(Cliente.id)).scalars().all()
+        numeric_ids = [int(x) for x in rows if isinstance(x, str) and x.isdigit()]
+        next_id = str((max(numeric_ids) + 1) if numeric_ids else 1)
+    except Exception:
+        # fallback to uuid if anything goes wrong
+        next_id = str(uuid.uuid4())
+
+    obj = Cliente(id=next_id, nombre=payload.nombre, email=str(payload.email) if payload.email else None, telefono=payload.telefono, activo=bool(payload.activo))
     db.add(obj)
     db.commit()
     db.refresh(obj)
