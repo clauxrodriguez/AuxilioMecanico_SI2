@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { AuthService } from '../../services/auth/auth.service';
 import { UserManagementApiService } from '../../services/user-management-api.service';
@@ -9,7 +10,7 @@ import { Cargo } from '../../models/user-management.models';
 @Component({
   selector: 'app-cargo',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink],
   template: `
     <section class="card page-block">
       <header class="head">
@@ -17,11 +18,13 @@ import { Cargo } from '../../models/user-management.models';
           <h2>Cargos</h2>
           <p class="muted">Registro y mantenimiento de cargos para asignar a empleados.</p>
         </div>
+        <a *ngIf="!isCreateView && canManage" [routerLink]="['/app/cargos/nuevo']" class="btn btn-primary">Registrar cargo</a>
+        <a *ngIf="isCreateView" [routerLink]="['/app/cargos']" class="btn btn-ghost">Volver al listado</a>
       </header>
 
       <p class="error" *ngIf="errorMsg">{{ errorMsg }}</p>
 
-      <form class="card inner" [formGroup]="form" (ngSubmit)="save()" *ngIf="canManage">
+      <form class="card inner" [formGroup]="form" (ngSubmit)="save()" *ngIf="canManage && isCreateView">
         <h3>{{ editingId ? 'Editar cargo' : 'Nuevo cargo' }}</h3>
 
         <div>
@@ -42,7 +45,7 @@ import { Cargo } from '../../models/user-management.models';
         </div>
       </form>
 
-      <table class="table">
+      <table class="table" *ngIf="!isCreateView">
         <thead>
           <tr>
             <th>Nombre</th>
@@ -55,7 +58,7 @@ import { Cargo } from '../../models/user-management.models';
             <td>{{ cargo.nombre }}</td>
             <td>{{ cargo.descripcion || 'N/A' }}</td>
             <td *ngIf="canManage">
-              <button class="btn btn-ghost" (click)="edit(cargo)">Editar</button>
+              <button class="btn btn-ghost" (click)="openEdit(cargo)">Editar</button>
               <button class="btn btn-danger" (click)="remove(cargo)">Eliminar</button>
             </td>
           </tr>
@@ -94,6 +97,7 @@ import { Cargo } from '../../models/user-management.models';
 })
 export class CargoComponent implements OnInit {
   cargos: Cargo[] = [];
+  isCreateView = false;
   editingId: string | null = null;
   loading = false;
   errorMsg = '';
@@ -107,6 +111,7 @@ export class CargoComponent implements OnInit {
     private readonly api: UserManagementApiService,
     private readonly auth: AuthService,
     private readonly fb: FormBuilder,
+    private readonly route: ActivatedRoute,
   ) {}
 
   get canManage(): boolean {
@@ -114,6 +119,12 @@ export class CargoComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.route.url.subscribe((segments) => {
+      this.isCreateView = segments.some((s) => s.path === 'nuevo');
+      if (this.isCreateView) {
+        this.resetForm();
+      }
+    });
     this.fetchCargos();
   }
 
@@ -134,6 +145,11 @@ export class CargoComponent implements OnInit {
       nombre: cargo.nombre,
       descripcion: cargo.descripcion || '',
     });
+  }
+
+  openEdit(cargo: Cargo): void {
+    this.edit(cargo);
+    this.isCreateView = true;
   }
 
   resetForm(): void {

@@ -10,6 +10,7 @@ import { CargoComponent } from './components/cargo/cargo.component';
 import { RolComponent } from './components/rol/rol.component';
 import { PermisoComponent } from './components/permisos/permiso.component';
 import { ClientesComponent } from './components/clientes/clientes.component';
+import { ClienteCreateComponent } from './components/clientes/cliente-create.component';
 import { ClienteDetailComponent } from './components/clientes/cliente-detail.component';
 import { VehiculosComponent } from './components/vehiculos/vehiculos.component';
 import { IncidentesComponent } from './components/incidentes/incidentes.component';
@@ -26,12 +27,18 @@ export const appRoutes: Routes = [
     canActivate: [authGuard],
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'empleados' },
+      { path: 'empleados/nuevo', component: EmpleadoComponent },
       { path: 'empleados', component: EmpleadoComponent },
+      { path: 'cargos/nuevo', component: CargoComponent },
       { path: 'cargos', component: CargoComponent },
+      { path: 'servicios/nuevo', component: ServicioComponent },
       { path: 'servicios', component: ServicioComponent },
+      { path: 'roles/nuevo', component: RolComponent },
       { path: 'roles', component: RolComponent },
+      { path: 'permisos/nuevo', component: PermisoComponent },
       { path: 'permisos', component: PermisoComponent },
       { path: 'clientes', component: ClientesComponent },
+      { path: 'clientes/nuevo', component: ClienteCreateComponent },
       { path: 'clientes/:id', component: ClienteDetailComponent },
       { path: 'vehiculos', component: VehiculosComponent },
       { path: 'incidentes', component: IncidentesComponent },

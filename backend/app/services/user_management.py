@@ -26,11 +26,13 @@ PLAN_LIMITS = {
 
 DEFAULT_PERMISSIONS: list[tuple[str, str]] = [
     ("manage_cargo", "Gestionar cargos (crear, editar y eliminar)."),
+    ("manage_clientes", "Gestionar clientes y vehiculos (crear, editar y eliminar)."),
     ("manage_empleado", "Gestionar empleados (crear, editar y eliminar)."),
     ("manage_rol", "Gestionar roles (crear, editar y eliminar)."),
     ("manage_permiso", "Gestionar permisos del sistema."),
     ("manage_servicio", "Gestionar servicios (crear, editar y eliminar)."),
     ("view_cargo", "Ver cargos."),
+    ("view_clientes", "Ver clientes y vehiculos."),
     ("view_empleado", "Ver empleados."),
     ("view_rol", "Ver roles."),
     ("view_permiso", "Ver permisos."),

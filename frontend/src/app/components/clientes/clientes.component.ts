@@ -10,28 +10,61 @@ import type { ClienteDto } from '../../services/cliente.service';
   standalone: true,
   imports: [CommonModule, RouterLink],
   template: `
-    <div class="card">
-      <header style="display:flex;justify-content:space-between;align-items:center">
-        <h3>Clientes</h3>
+    <section class="card page-block">
+      <header class="head">
+        <div>
+          <h2>Clientes</h2>
+          <p class="muted">Registro y mantenimiento de clientes del taller.</p>
+        </div>
+        <a [routerLink]="['/app/clientes/nuevo']" class="btn btn-primary">Registrar cliente</a>
       </header>
 
       <div *ngIf="loading" class="muted">Cargando clientes...</div>
       <div *ngIf="!loading && clientes.length === 0" class="muted">No hay clientes.</div>
 
-      <ul>
-        <li *ngFor="let c of clientes" style="margin:0.5rem 0; display:flex; justify-content:space-between; align-items:center">
-          <div>
-            <strong>{{ c.nombre }}</strong>
-            <div class="muted">{{ c.email }} • {{ c.telefono }}</div>
-          </div>
-          <div>
-            <a [routerLink]="['/app/clientes', c.id]" class="btn btn-small">Ver</a>
-          </div>
-        </li>
-      </ul>
-    </div>
+      <table class="table" *ngIf="!loading && clientes.length > 0">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Email</th>
+            <th>Telefono</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let c of clientes">
+            <td>{{ c.nombre }}</td>
+            <td>{{ c.email || 'N/A' }}</td>
+            <td>{{ c.telefono || 'N/A' }}</td>
+            <td>
+              <span class="badge">{{ c.activo === false ? 'Inactivo' : 'Activo' }}</span>
+            </td>
+            <td>
+              <a [routerLink]="['/app/clientes', c.id]" class="btn btn-ghost">Editar</a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
   `,
-  styles: [``],
+  styles: [
+    `
+      .page-block {
+        padding: 1rem;
+      }
+
+      .head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+    `,
+  ],
 })
 export class ClientesComponent implements OnInit {
   clientes: ClienteDto[] = [];

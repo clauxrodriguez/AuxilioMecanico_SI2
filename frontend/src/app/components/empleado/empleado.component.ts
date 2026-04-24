@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { AuthService } from '../../services/auth/auth.service';
 import { UserManagementApiService } from '../../services/user-management-api.service';
@@ -9,7 +10,7 @@ import { Cargo, Empleado, Rol } from '../../models/user-management.models';
 @Component({
   selector: 'app-empleado',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink],
   template: `
     <section class="card page-block">
       <header class="head">
@@ -17,11 +18,13 @@ import { Cargo, Empleado, Rol } from '../../models/user-management.models';
           <h2>Empleados</h2>
           <p class="muted">Alta, edicion y baja de usuarios empleados.</p>
         </div>
+        <a *ngIf="!isCreateView && canManage" [routerLink]="['/app/empleados/nuevo']" class="btn btn-primary">Registrar empleado</a>
+        <a *ngIf="isCreateView" [routerLink]="['/app/empleados']" class="btn btn-ghost">Volver al listado</a>
       </header>
 
       <p class="error" *ngIf="errorMsg">{{ errorMsg }}</p>
 
-      <form class="card inner" [formGroup]="form" (ngSubmit)="save()" *ngIf="canManage">
+      <form class="card inner" [formGroup]="form" (ngSubmit)="save()" *ngIf="canManage && isCreateView">
         <h3>{{ editingId ? 'Editar empleado' : 'Nuevo empleado' }}</h3>
 
         <div class="form-grid">
@@ -92,7 +95,7 @@ import { Cargo, Empleado, Rol } from '../../models/user-management.models';
         </div>
       </form>
 
-      <table class="table">
+      <table class="table" *ngIf="!isCreateView">
         <thead>
           <tr>
             <th>Usuario</th>
@@ -113,7 +116,7 @@ import { Cargo, Empleado, Rol } from '../../models/user-management.models';
               <span class="badge" *ngFor="let r of emp.roles_asignados">{{ r.nombre }}</span>
             </td>
             <td *ngIf="canManage">
-              <button class="btn btn-ghost" (click)="edit(emp)">Editar</button>
+              <button class="btn btn-ghost" (click)="openEdit(emp)">Editar</button>
               <button class="btn btn-danger" (click)="remove(emp)">Eliminar</button>
             </td>
           </tr>
@@ -181,6 +184,7 @@ import { Cargo, Empleado, Rol } from '../../models/user-management.models';
 })
 export class EmpleadoComponent implements OnInit {
   empleados: Empleado[] = [];
+  isCreateView = false;
   cargosCatalogo: Cargo[] = [];
   rolesCatalogo: Rol[] = [];
   selectedRoleIds = new Set<string>();
@@ -204,6 +208,7 @@ export class EmpleadoComponent implements OnInit {
     private readonly api: UserManagementApiService,
     private readonly auth: AuthService,
     private readonly fb: FormBuilder,
+    private readonly route: ActivatedRoute,
   ) {}
 
   get canManage(): boolean {
@@ -211,6 +216,12 @@ export class EmpleadoComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.route.url.subscribe((segments) => {
+      this.isCreateView = segments.some((s) => s.path === 'nuevo');
+      if (this.isCreateView) {
+        this.resetForm();
+      }
+    });
     this.fetchAll();
   }
 
@@ -266,6 +277,11 @@ export class EmpleadoComponent implements OnInit {
     });
 
     this.selectedRoleIds = new Set(emp.roles || emp.roles_asignados.map((r) => r.id));
+  }
+
+  openEdit(emp: Empleado): void {
+    this.edit(emp);
+    this.isCreateView = true;
   }
 
   resetForm(): void {
