@@ -10,8 +10,6 @@ import { CargoComponent } from './components/cargo/cargo.component';
 import { RolComponent } from './components/rol/rol.component';
 import { PermisoComponent } from './components/permisos/permiso.component';
 import { ClientesComponent } from './components/clientes/clientes.component';
-import { ClienteCreateComponent } from './components/clientes/cliente-create.component';
-import { ClienteDetailComponent } from './components/clientes/cliente-detail.component';
 import { VehiculosComponent } from './components/vehiculos/vehiculos.component';
 import { IncidentesComponent } from './components/incidentes/incidentes.component';
 import { ServicioComponent } from './components/servicio/servicio.component';
@@ -38,8 +36,6 @@ export const appRoutes: Routes = [
       { path: 'permisos/nuevo', component: PermisoComponent },
       { path: 'permisos', component: PermisoComponent },
       { path: 'clientes', component: ClientesComponent },
-      { path: 'clientes/nuevo', component: ClienteCreateComponent },
-      { path: 'clientes/:id', component: ClienteDetailComponent },
       { path: 'vehiculos', component: VehiculosComponent },
       { path: 'incidentes', component: IncidentesComponent },
     ],

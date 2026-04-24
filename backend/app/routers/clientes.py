@@ -85,6 +85,15 @@ def cliente_add_vehiculo(cliente_id: str, payload: VehiculoCreate, user=Depends(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente no encontrado")
 
 
+@router.post("/{cliente_id}/vehiculos/public", response_model=VehiculoOut, status_code=status.HTTP_201_CREATED)
+def cliente_add_vehiculo_public(cliente_id: str, payload: VehiculoCreate, db: Session = Depends(get_db)) -> VehiculoOut:
+    # Public endpoint for clients (mobile) to register their own vehicles without admin permission.
+    try:
+        return create_vehiculo_for_cliente(db, cliente_id, payload)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente no encontrado")
+
+
 @router.get("/{cliente_id}/vehiculos", response_model=list[VehiculoOut])
 def cliente_list_vehiculos(cliente_id: str, db: Session = Depends(get_db)) -> list[VehiculoOut]:
     try:
