@@ -192,18 +192,19 @@ class Vehiculo(Base):
 class Incidente(Base):
     __tablename__ = "incidente"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    cliente_id: Mapped[str] = mapped_column(String(36), ForeignKey("cliente.id", ondelete="SET NULL"), nullable=True)
-    vehiculo_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("vehiculo.id", ondelete="SET NULL"), nullable=True)
+    # DB has integer PK named `id` and uses `id_usuario` / `id_vehiculo` columns
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    cliente_id: Mapped[str] = mapped_column(String(36), ForeignKey("cliente.id", ondelete="SET NULL"), nullable=True, name="id_usuario")
+    vehiculo_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("vehiculo.id", ondelete="SET NULL"), nullable=True, name="id_vehiculo")
     tipo: Mapped[str | None] = mapped_column(String(100), nullable=True)
     descripcion: Mapped[str | None] = mapped_column(Text, nullable=True)
     estado: Mapped[str] = mapped_column(String(50), nullable=False, default="pendiente")
     prioridad: Mapped[int | None] = mapped_column(Integer, nullable=True)
     latitud: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
     longitud: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
-    taller_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
-    tiempo_estimado_minutos: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    # note: the existing DB table `incidente` does not include columns for
+    # `taller_id`, `tiempo_estimado_minutos` or `creado_en` so we omit them
+    # here to remain compatible with the current schema and avoid INSERT errors.
 
     cliente: Mapped[Cliente | None] = relationship()
     vehiculo: Mapped[Vehiculo | None] = relationship()
@@ -214,8 +215,9 @@ class Incidente(Base):
 class Evidencia(Base):
     __tablename__ = "evidencia"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    incidente_id: Mapped[str] = mapped_column(String(36), ForeignKey("incidente.id", ondelete="CASCADE"), nullable=False)
+    # evidence table uses integer PKs referencing incidente.id
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    incidente_id: Mapped[int] = mapped_column(Integer, ForeignKey("incidente.id", ondelete="CASCADE"), nullable=False)
     tipo: Mapped[str] = mapped_column(String(50), nullable=False)  # foto, audio, otro
     url_archivo: Mapped[str | None] = mapped_column(String(255), nullable=True)
     texto: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -226,8 +228,8 @@ class Evidencia(Base):
 class Diagnostico(Base):
     __tablename__ = "diagnostico"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    incidente_id: Mapped[str] = mapped_column(String(36), ForeignKey("incidente.id", ondelete="CASCADE"), nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    incidente_id: Mapped[int] = mapped_column(Integer, ForeignKey("incidente.id", ondelete="CASCADE"), nullable=False)
     clasificacion: Mapped[int | None] = mapped_column(Integer, nullable=True)
     resumen: Mapped[str | None] = mapped_column(Text, nullable=True)
     prioridad: Mapped[int | None] = mapped_column(Integer, nullable=True)

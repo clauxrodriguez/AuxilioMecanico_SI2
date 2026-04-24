@@ -11,13 +11,12 @@ from app.schemas.incidente import IncidenteCreate, IncidenteUpdate
 
 
 def list_incidentes(db: Session) -> list[Incidente]:
-    return db.execute(select(Incidente).order_by(Incidente.creado_en.desc())).scalars().all()
+    # existing DB doesn't have `creado_en` on incidente; order by id desc instead
+    return db.execute(select(Incidente).order_by(Incidente.id.desc())).scalars().all()
 
 
 def create_incidente(db: Session, payload: IncidenteCreate, cliente_id: str | None = None) -> Incidente:
-    now = datetime.now(timezone.utc)
     obj = Incidente(
-        id=str(uuid.uuid4()),
         cliente_id=cliente_id,
         vehiculo_id=payload.vehiculo_id,
         tipo=payload.tipo,
@@ -26,7 +25,6 @@ def create_incidente(db: Session, payload: IncidenteCreate, cliente_id: str | No
         prioridad=payload.prioridad if hasattr(payload, 'prioridad') else None,
         latitud=payload.latitud,
         longitud=payload.longitud,
-        creado_en=now,
     )
     db.add(obj)
     db.commit()
@@ -35,7 +33,12 @@ def create_incidente(db: Session, payload: IncidenteCreate, cliente_id: str | No
 
 
 def get_incidente_or_404(db: Session, incidente_id: str) -> Incidente:
-    obj = db.get(Incidente, incidente_id)
+    # incidente.id in DB is integer; allow passing str or int
+    try:
+        key = int(incidente_id)
+    except Exception:
+        key = incidente_id
+    obj = db.get(Incidente, key)
     if not obj:
         raise ValueError("Incidente no encontrado")
     return obj
@@ -48,8 +51,7 @@ def update_incidente(db: Session, incidente: Incidente, payload: IncidenteUpdate
         incidente.prioridad = payload.prioridad
     if payload.descripcion is not None:
         incidente.descripcion = payload.descripcion
-    if payload.tiempo_estimado_minutos is not None:
-        incidente.tiempo_estimado_minutos = payload.tiempo_estimado_minutos
+    # note: tiempo_estimado_minutos not present in current DB schema; skip if provided
 
     db.add(incidente)
     db.commit()
@@ -59,7 +61,6 @@ def update_incidente(db: Session, incidente: Incidente, payload: IncidenteUpdate
 
 def add_diagnostico(db: Session, incidente: Incidente, clasificacion: int | None = None, resumen: str | None = None, prioridad: int | None = None) -> Diagnostico:
     diag = Diagnostico(
-        id=str(uuid.uuid4()),
         incidente_id=incidente.id,
         clasificacion=clasificacion,
         resumen=resumen,
@@ -73,11 +74,53 @@ def add_diagnostico(db: Session, incidente: Incidente, clasificacion: int | None
 
 
 def add_evidencia(db: Session, incidente: Incidente, tipo: str, url_archivo: str | None = None, texto: str | None = None) -> Evidencia:
-    ev = Evidencia(id=str(uuid.uuid4()), incidente_id=incidente.id, tipo=tipo, url_archivo=url_archivo, texto=texto)
+    ev = Evidencia(incidente_id=incidente.id, tipo=tipo, url_archivo=url_archivo, texto=texto)
     db.add(ev)
     db.commit()
     db.refresh(ev)
     return ev
+
+
+def list_evidencias_for_incidente(db: Session, incidente_id: str) -> list[Evidencia]:
+    stmt = select(Evidencia).where(Evidencia.incidente_id == incidente_id)
+    return db.execute(stmt).scalars().all()
+
+
+def get_evidencia_or_404(db: Session, evidencia_id: str) -> Evidencia:
+    obj = db.get(Evidencia, evidencia_id)
+    if not obj:
+        raise ValueError("Evidencia no encontrada")
+    return obj
+
+
+def delete_evidencia(db: Session, evidencia: Evidencia) -> None:
+    db.delete(evidencia)
+    db.commit()
+
+
+def list_diagnosticos_for_incidente(db: Session, incidente_id: str) -> list[Diagnostico]:
+    stmt = select(Diagnostico).where(Diagnostico.incidente_id == incidente_id)
+    return db.execute(stmt).scalars().all()
+
+
+def get_diagnostico_or_404(db: Session, diagnostico_id: str) -> Diagnostico:
+    obj = db.get(Diagnostico, diagnostico_id)
+    if not obj:
+        raise ValueError("Diagnostico no encontrado")
+    return obj
+
+
+def update_diagnostico(db: Session, diagnostico: Diagnostico, clasificacion: int | None = None, resumen: str | None = None, prioridad: int | None = None) -> Diagnostico:
+    if clasificacion is not None:
+        diagnostico.clasificacion = clasificacion
+    if resumen is not None:
+        diagnostico.resumen = resumen
+    if prioridad is not None:
+        diagnostico.prioridad = prioridad
+    db.add(diagnostico)
+    db.commit()
+    db.refresh(diagnostico)
+    return diagnostico
 
 
 __all__ = [

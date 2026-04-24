@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, status, Response, BackgroundTasks, Query
 from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -26,6 +26,10 @@ from app.db.models import User, Cliente
 from app.services.auth_service import create_token_pair, authenticate_user, refresh_access_token
 import re
 import secrets
+from app.schemas.incidente import IncidenteCreate
+from app.services.incidente_service import create_incidente, add_evidencia
+from app.services.file_storage import save_base64
+from app.services import incidente_tasks
 
 
 def _slugify_name(name: str) -> str:
@@ -185,6 +189,65 @@ def clientes_me_count_vehiculos(user=Depends(get_current_user), db: Session = De
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No asociado a ningún cliente")
     rows = list_vehiculos_for_cliente(db, cliente.id)
     return {"count": len(rows)}
+
+
+@router.post("/me/incidentes", response_model=dict, status_code=status.HTTP_201_CREATED)
+def clientes_me_create_incidente(
+    body: dict,
+    background_tasks: BackgroundTasks,
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+    vehiculo_id: str | None = Query(None, description="ID del vehículo seleccionado (opcional si cliente tiene 1 vehículo)"),
+) -> dict:
+    """Crear un incidente desde la app móvil para el cliente autenticado.
+    Guarda evidencias (base64), crea el incidente y lanza tareas background
+    para análisis y asignación.
+    """
+    cliente = _find_cliente_for_user(db, user)
+    if not cliente:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No asociado a ningún cliente")
+
+
+    vehiculo_id = vehiculo_id or body.get("vehiculo_id")
+    if not vehiculo_id:
+        # seleccion del vehiculo
+        rows = list_vehiculos_for_cliente(db, cliente.id)
+        if len(rows) == 1:
+            vehiculo_id = rows[0].id
+        else:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="vehiculo_id requerido: seleccione un vehículo de /clientes/me/vehiculos")
+
+    try:
+        from app.services.vehiculo_service import get_vehiculo_or_404
+        v = get_vehiculo_or_404(db, vehiculo_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vehiculo no encontrado")
+    if str(v.cliente_id) != str(cliente.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Vehiculo no pertenece al cliente")
+
+    payload = IncidenteCreate(
+        vehiculo_id=vehiculo_id,
+        tipo=body.get("tipo"),
+        descripcion=body.get("descripcion"),
+        latitud=body.get("latitud"),
+        longitud=body.get("longitud"),
+    )
+
+    inc = create_incidente(db, payload, cliente_id=str(cliente.id))
+
+    # guardar evidencias (base64 strings)
+    evidencias = body.get("evidencias") or []
+    for ev in evidencias:
+        try:
+            path = save_base64(ev, subdir=f"incidentes/{inc.id}")
+        except Exception:
+            path = None
+        add_evidencia(db, inc, tipo="foto", url_archivo=path, texto=(None if path else (str(ev)[:200])))
+
+    # lanzar tarea background para análisis y asignación
+    background_tasks.add_task(incidente_tasks.analyze_and_assign, inc.id)
+
+    return {"incidente_id": inc.id, "estado": inc.estado, "diagnostico": None, "mecanico_asignado": None, "eta": None}
 
 
 
