@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.deps.auth import get_current_user, require_permission
 from app.schemas.cliente import ClienteCreate, ClienteOut, ClienteUpdate
-from app.schemas.vehiculo import VehiculoCreate, VehiculoOut
+from app.schemas.vehiculo import VehiculoCreate, VehiculoOut, VehiculoUpdate
 from app.services.cliente_service import (
     create_cliente,
     get_cliente_or_404,
@@ -19,6 +19,7 @@ from app.services.cliente_service import (
     get_cliente_historial,
 )
 from app.services.vehiculo_service import create_vehiculo_for_cliente, list_vehiculos_for_cliente
+from app.services.permission_service import get_user_permissions
 from app.schemas.cliente import ClienteLogin
 from app.core.security import hash_password
 from app.db.models import User, Cliente
@@ -64,17 +65,17 @@ def clientes_list(db: Session = Depends(get_db)) -> list[ClienteOut]:
 
 
 @router.get("/{cliente_id}/", response_model=ClienteOut)
-def clientes_retrieve(cliente_id: str, db: Session = Depends(get_db)) -> ClienteOut:
+def clientes_retrieve(cliente_id: int, db: Session = Depends(get_db)) -> ClienteOut:
     try:
-        return get_cliente_or_404(db, cliente_id)
+        return get_cliente_or_404(db, str(cliente_id))
     except ValueError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente no encontrado")
 
 
 @router.put("/{cliente_id}/", response_model=ClienteOut)
-def clientes_update(cliente_id: str, payload: ClienteUpdate, user=Depends(require_permission("manage_clientes")), db: Session = Depends(get_db)) -> ClienteOut:
+def clientes_update(cliente_id: int, payload: ClienteUpdate, user=Depends(require_permission("manage_clientes")), db: Session = Depends(get_db)) -> ClienteOut:
     try:
-        cliente = get_cliente_or_404(db, cliente_id)
+        cliente = get_cliente_or_404(db, str(cliente_id))
     except ValueError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente no encontrado")
     return update_cliente(db, cliente, payload)
@@ -106,32 +107,84 @@ def cliente_verify_otp(body: dict, db: Session = Depends(get_db)) -> dict:
     return clientes_verificar_sms(body, db)
 
 
-@router.get("/{cliente_id}/historial", response_model=list[VehiculoOut])
-def clientes_historial(cliente_id: str, db: Session = Depends(get_db)) -> list[VehiculoOut]:
+
+
+
+
+@router.post("/me/vehiculos", response_model=VehiculoOut, status_code=status.HTTP_201_CREATED)
+def clientes_me_add_vehiculo(payload: VehiculoCreate, user=Depends(get_current_user), db: Session = Depends(get_db)) -> VehiculoOut:
+    """Allow the authenticated cliente to register a vehicle for themselves (mobile flow)."""
+    cliente = _find_cliente_for_user(db, user)
+    if not cliente:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No asociado a ningún cliente")
     try:
-        rows = get_cliente_historial(db, cliente_id)
-    except ValueError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente no encontrado")
-    return rows
+        v = create_vehiculo_for_cliente(db, cliente.id, payload)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    return v
 
 
-@router.post("/{cliente_id}/vehiculos", response_model=VehiculoOut, status_code=status.HTTP_201_CREATED)
-def cliente_add_vehiculo(cliente_id: str, payload: VehiculoCreate, user=Depends(require_permission("manage_clientes")), db: Session = Depends(get_db)) -> VehiculoOut:
+@router.get("/me/vehiculos", response_model=list[VehiculoOut])
+def clientes_me_list_vehiculos(user=Depends(get_current_user), db: Session = Depends(get_db)) -> list[VehiculoOut]:
+    cliente = _find_cliente_for_user(db, user)
+    if not cliente:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No asociado a ningún cliente")
+    return list_vehiculos_for_cliente(db, cliente.id)
+
+
+@router.get("/me/vehiculos/{vehiculo_id}", response_model=VehiculoOut)
+def clientes_me_get_vehiculo(vehiculo_id: str, user=Depends(get_current_user), db: Session = Depends(get_db)) -> VehiculoOut:
+    cliente = _find_cliente_for_user(db, user)
+    if not cliente:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No asociado a ningún cliente")
     try:
-        return create_vehiculo_for_cliente(db, cliente_id, payload)
+        from app.services.vehiculo_service import get_vehiculo_or_404
+        v = get_vehiculo_or_404(db, vehiculo_id)
     except ValueError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente no encontrado")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vehiculo no encontrado")
+    if str(v.cliente_id) != str(cliente.id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vehiculo no encontrado")
+    return v
 
 
-# (removed public vehicle-by-client endpoint; vehicles should be created via admin endpoints or a dedicated mobile flow)
-
-
-@router.get("/{cliente_id}/vehiculos", response_model=list[VehiculoOut])
-def cliente_list_vehiculos(cliente_id: str, db: Session = Depends(get_db)) -> list[VehiculoOut]:
+@router.patch("/me/vehiculos/{vehiculo_id}", response_model=VehiculoOut)
+def clientes_me_patch_vehiculo(vehiculo_id: str, payload: VehiculoUpdate, user=Depends(get_current_user), db: Session = Depends(get_db)) -> VehiculoOut:
+    cliente = _find_cliente_for_user(db, user)
+    if not cliente:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No asociado a ningún cliente")
     try:
-        return list_vehiculos_for_cliente(db, cliente_id)
+        from app.services.vehiculo_service import get_vehiculo_or_404, update_vehiculo
+        v = get_vehiculo_or_404(db, vehiculo_id)
     except ValueError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente no encontrado")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vehiculo no encontrado")
+    if str(v.cliente_id) != str(cliente.id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vehiculo no encontrado")
+    return update_vehiculo(db, v, payload)
+
+
+@router.delete("/me/vehiculos/{vehiculo_id}", status_code=status.HTTP_204_NO_CONTENT)
+def clientes_me_delete_vehiculo(vehiculo_id: str, user=Depends(get_current_user), db: Session = Depends(get_db)):
+    cliente = _find_cliente_for_user(db, user)
+    if not cliente:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No asociado a ningún cliente")
+    try:
+        from app.services.vehiculo_service import get_vehiculo_or_404, delete_vehiculo
+        v = get_vehiculo_or_404(db, vehiculo_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vehiculo no encontrado")
+    if str(v.cliente_id) != str(cliente.id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vehiculo no encontrado")
+    delete_vehiculo(db, v)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/me/vehiculos/count", response_model=dict)
+def clientes_me_count_vehiculos(user=Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
+    cliente = _find_cliente_for_user(db, user)
+    if not cliente:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No asociado a ningún cliente")
+    rows = list_vehiculos_for_cliente(db, cliente.id)
+    return {"count": len(rows)}
 
 
 

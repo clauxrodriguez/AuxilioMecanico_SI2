@@ -179,6 +179,15 @@ class Vehiculo(Base):
   
     cliente: Mapped[Cliente] = relationship(back_populates="vehiculos")
 
+    # keep backward-compatible attribute `anio` for Pydantic schemas and API
+    @property
+    def anio(self) -> int | None:
+        return self.ano
+
+    @anio.setter
+    def anio(self, value: int | None) -> None:
+        self.ano = value
+
 
 class Incidente(Base):
     __tablename__ = "incidente"

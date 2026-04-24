@@ -12,6 +12,7 @@ from app.services.vehiculo_service import (
     delete_vehiculo,
     set_principal,
 )
+ 
 
 router = APIRouter(prefix="/vehiculos", tags=["vehiculos"])
 

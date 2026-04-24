@@ -12,11 +12,18 @@ def create_vehiculo_for_cliente(db: Session, cliente_id: str, payload: VehiculoC
     cliente = db.get(Cliente, cliente_id)
     if not cliente:
         raise ValueError("Cliente no encontrado")
+    # generate sequential numeric id as string: '1','2','3',... if possible
+    try:
+        rows = db.execute(select(Vehiculo.id)).scalars().all()
+        numeric_ids = [int(x) for x in rows if isinstance(x, str) and x.isdigit()]
+        next_id = str((max(numeric_ids) + 1) if numeric_ids else 1)
+    except Exception:
+        next_id = str(uuid.uuid4())
 
     obj = Vehiculo(
-        id=str(uuid.uuid4()),
+        id=next_id,
         cliente_id=cliente_id,
-        anio=payload.anio,
+        ano=payload.anio,
         placa=payload.placa,
         marca=payload.marca,
         modelo=payload.modelo,
@@ -43,7 +50,7 @@ def get_vehiculo_or_404(db: Session, vehiculo_id: str) -> Vehiculo:
 
 def update_vehiculo(db: Session, vehiculo: Vehiculo, payload: VehiculoUpdate) -> Vehiculo:
     if payload.anio is not None:
-        vehiculo.anio = payload.anio
+        vehiculo.ano = payload.anio
     if payload.placa is not None:
         vehiculo.placa = payload.placa
     if payload.marca is not None:

@@ -19,8 +19,7 @@ class VehiculoUpdate(BaseModel):
     placa: str | None = None
     marca: str | None = None
     modelo: str | None = None
-    principal: bool | None = None
-
+  
 
 class VehiculoOut(ORMModel):
     id: str
@@ -29,4 +28,4 @@ class VehiculoOut(ORMModel):
     placa: str | None
     marca: str | None
     modelo: str | None
-    principal: bool
+
