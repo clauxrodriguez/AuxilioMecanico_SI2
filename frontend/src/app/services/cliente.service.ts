@@ -16,6 +16,25 @@ export interface VehiculoDto {
 export interface ClienteDto {
   id: string;
   nombre: string;
+  username?: string;
+  email?: string;
+  telefono?: string;
+  activo?: boolean;
+}
+
+export interface ClienteCreatePayload {
+  nombre: string;
+  username: string;
+  password: string;
+  email?: string;
+  telefono?: string;
+  activo?: boolean;
+}
+
+export interface ClienteUpdatePayload {
+  nombre?: string;
+  username?: string;
+  password?: string;
   email?: string;
   telefono?: string;
   activo?: boolean;
@@ -35,16 +54,28 @@ export class ClienteApiService {
     return this.http.get<ClienteDto>(`${this.base}/clientes/${id}/`);
   }
 
-  create(payload: Partial<ClienteDto>) {
+  create(payload: ClienteCreatePayload) {
     return this.http.post<ClienteDto>(`${this.base}/clientes/`, payload);
   }
 
-  update(id: string, patch: Partial<ClienteDto>) {
+  update(id: string, patch: ClienteUpdatePayload) {
     return this.http.put<ClienteDto>(`${this.base}/clientes/${id}/`, patch);
   }
 
   listVehiculos(clienteId: string) {
     return this.http.get<VehiculoDto[]>(`${this.base}/clientes/${clienteId}/vehiculos`);
+  }
+
+  getMe() {
+    return this.http.get<ClienteDto>(`${this.base}/clientes/me/`);
+  }
+
+  listMyVehiculos() {
+    return this.http.get<VehiculoDto[]>(`${this.base}/clientes/me/vehiculos`);
+  }
+
+  createMyVehiculo(payload: Partial<VehiculoDto>) {
+    return this.http.post<VehiculoDto>(`${this.base}/clientes/me/vehiculos`, payload);
   }
 
   createVehiculo(clienteId: string, payload: Partial<VehiculoDto>) {

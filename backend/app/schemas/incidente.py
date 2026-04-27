@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from app.schemas.common import ORMModel
 from typing import List
 
@@ -7,15 +7,48 @@ class IncidenteCreate(BaseModel):
     vehiculo_id: str | None = None
     tipo: str | None = None
     descripcion: str | None = None
-    latitud: float | None = None
-    longitud: float | None = None
+    prioridad: int | None = None
+    latitud: float | None = Field(default=None, ge=-90, le=90)
+    longitud: float | None = Field(default=None, ge=-180, le=180)
 
 
 class IncidenteUpdate(BaseModel):
     estado: str | None = None
-    prioridad: str | None = None
+    prioridad: int | None = None
     descripcion: str | None = None
     tiempo_estimado_minutos: int | None = None
+
+
+class AsignarTecnicoRequest(BaseModel):
+    empleado_id: str
+
+
+class TecnicoUbicacionUpdate(BaseModel):
+    latitud: float = Field(ge=-90, le=90)
+    longitud: float = Field(ge=-180, le=180)
+    disponible: bool | None = None
+
+
+class TecnicoCercanoOut(BaseModel):
+    empleado_id: str
+    nombre_completo: str
+    latitud: float
+    longitud: float
+    distancia_km: float
+    disponible: bool
+
+
+class IncidenteTrackingOut(BaseModel):
+    incidente_id: str
+    estado: str
+    latitud_incidente: float | None
+    longitud_incidente: float | None
+    empleado_asignado_id: str | None
+    tecnico_nombre: str | None
+    tecnico_latitud: float | None
+    tecnico_longitud: float | None
+    tecnico_disponible: bool | None
+    tecnico_ubicacion_actualizada_en: str | None
 
 
 class EvidenciaOut(ORMModel):
@@ -39,6 +72,7 @@ class IncidenteOut(ORMModel):
     id: str
     cliente_id: str | None
     vehiculo_id: str | None
+    empleado_asignado_id: str | None
     tipo: str | None
     descripcion: str | None
     estado: str

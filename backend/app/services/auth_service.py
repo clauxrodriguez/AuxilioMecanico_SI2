@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import get_settings
 from app.core.security import create_token, decode_token, verify_password
-from app.db.models import Empleado, Rol, User
+from app.db.models import Cliente, Empleado, Rol, User
 
 settings = get_settings()
 
@@ -22,6 +22,7 @@ def _employee_with_relations(db: Session, user_id: int) -> Empleado | None:
 
 def build_user_claims(db: Session, user: User) -> dict:
     empleado = _employee_with_relations(db, user.id)
+    cliente = db.execute(select(Cliente).where(Cliente.usuario_id == user.id)).scalars().first()
 
     if empleado:
         full_name = (empleado.nombre_completo or user.first_name or user.username).strip()
@@ -33,9 +34,27 @@ def build_user_claims(db: Session, user: User) -> dict:
             "empresa_id": empleado.empresa_id,
             "empresa_nombre": empleado.empresa.nombre if empleado.empresa else None,
             "roles": role_names,
+            "role": "admin" if user.is_staff else "empleado",
             "is_admin": bool(user.is_staff),
             "empleado_id": empleado.id,
+            "cliente_id": None,
             "foto_perfil": empleado.foto_perfil,
+        }
+
+    if cliente:
+        full_name = (cliente.nombre or user.first_name or user.username).strip()
+        return {
+            "username": user.username,
+            "email": user.email,
+            "nombre_completo": full_name or user.username,
+            "empresa_id": None,
+            "empresa_nombre": None,
+            "roles": ["cliente"],
+            "role": "cliente",
+            "is_admin": False,
+            "empleado_id": None,
+            "cliente_id": cliente.id,
+            "foto_perfil": None,
         }
 
     return {
@@ -45,8 +64,10 @@ def build_user_claims(db: Session, user: User) -> dict:
         "empresa_id": None,
         "empresa_nombre": None,
         "roles": [],
+        "role": "usuario",
         "is_admin": bool(user.is_staff),
         "empleado_id": None,
+        "cliente_id": None,
         "foto_perfil": None,
     }
 

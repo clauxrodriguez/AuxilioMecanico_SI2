@@ -8,6 +8,7 @@ class VehiculoBase(BaseModel):
     placa: str | None = None
     marca: str | None = None
     modelo: str | None = None
+    principal: bool | None = False
 
 
 class VehiculoCreate(VehiculoBase):

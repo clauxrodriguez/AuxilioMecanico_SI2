@@ -10,8 +10,10 @@ import { AuthService } from '../../services/auth/auth.service';
   template: `
     <header class="card topbar">
       <div>
-        <strong>Panel de gestion</strong>
-        <p class="muted">Administracion de usuarios, roles y permisos</p>
+        <strong>{{ auth.isClient ? 'Portal de cliente' : 'Panel de gestion' }}</strong>
+        <p class="muted">
+          {{ auth.isClient ? 'Gestiona tu perfil, vehiculos e incidentes' : 'Administracion de usuarios, roles y permisos' }}
+        </p>
       </div>
 
       <div class="user" *ngIf="auth.currentUser as user">

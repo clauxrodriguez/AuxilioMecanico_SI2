@@ -67,6 +67,8 @@ class Empresa(Base):
     direccion: Mapped[str | None] = mapped_column(String(255), nullable=True)
     telefono: Mapped[str | None] = mapped_column(String(20), nullable=True)
     email: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    latitud: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
+    longitud: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
     fecha_creacion: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     empleados: Mapped[list[Empleado]] = relationship(back_populates="empresa")
@@ -132,6 +134,10 @@ class Empleado(Base):
 
     foto_perfil: Mapped[str | None] = mapped_column(String(100), nullable=True)
     fcm_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    latitud_actual: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
+    longitud_actual: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
+    ubicacion_actualizada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    disponible: Mapped[bool] = mapped_column(Boolean, default=True)
 
     usuario: Mapped[User] = relationship(back_populates="empleado")
     empresa: Mapped[Empresa] = relationship(back_populates="empleados")
@@ -158,12 +164,18 @@ class Cliente(Base):
     __tablename__ = "cliente"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    usuario_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("auth_user.id", ondelete="SET NULL"), unique=True, nullable=True)
     nombre: Mapped[str] = mapped_column(String(150), nullable=False)
     email: Mapped[str | None] = mapped_column(String(254), nullable=True)
     telefono: Mapped[str | None] = mapped_column(String(20), nullable=True)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
+    usuario: Mapped[User | None] = relationship()
     vehiculos: Mapped[list["Vehiculo"]] = relationship(back_populates="cliente")
+
+    @property
+    def username(self) -> str | None:
+        return self.usuario.username if self.usuario else None
 
 
 class Vehiculo(Base):
@@ -171,10 +183,11 @@ class Vehiculo(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     cliente_id: Mapped[str] = mapped_column(String(36), ForeignKey("cliente.id", ondelete="CASCADE"), nullable=False)
-    ano: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    anio: Mapped[int | None] = mapped_column("ano", Integer, nullable=True)
     placa: Mapped[str | None] = mapped_column(String(20), nullable=True)
     marca: Mapped[str | None] = mapped_column(String(50), nullable=True)
     modelo: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    principal: Mapped[bool] = mapped_column(Boolean, default=False)
 
   
     cliente: Mapped[Cliente] = relationship(back_populates="vehiculos")
@@ -192,12 +205,14 @@ class Incidente(Base):
     prioridad: Mapped[int | None] = mapped_column(Integer, nullable=True)
     latitud: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
     longitud: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
+    empleado_asignado_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("empleado.id", ondelete="SET NULL"), nullable=True)
     taller_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     tiempo_estimado_minutos: Mapped[int | None] = mapped_column(Integer, nullable=True)
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     cliente: Mapped[Cliente | None] = relationship()
     vehiculo: Mapped[Vehiculo | None] = relationship()
+    empleado_asignado: Mapped[Empleado | None] = relationship()
     evidencias: Mapped[list["Evidencia"]] = relationship(back_populates="incidente")
     diagnosticos: Mapped[list["Diagnostico"]] = relationship(back_populates="incidente")
 

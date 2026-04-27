@@ -31,6 +31,24 @@ import { ClienteApiService } from '../../services/cliente.service';
           </div>
 
           <div>
+            <label class="label">Usuario</label>
+            <input class="input" formControlName="username" autocomplete="username" />
+            <div class="error" *ngIf="isInvalid('username')">Usuario requerido (min 4, max 120).</div>
+          </div>
+
+          <div>
+            <label class="label">Contrasena</label>
+            <input class="input" type="password" formControlName="password" autocomplete="new-password" />
+            <div class="error" *ngIf="isInvalid('password')">Contrasena requerida (min 8).</div>
+          </div>
+
+          <div>
+            <label class="label">Confirmar contrasena</label>
+            <input class="input" type="password" formControlName="password_confirm" autocomplete="new-password" />
+            <div class="error" *ngIf="passwordMismatch">Las contrasenas no coinciden.</div>
+          </div>
+
+          <div>
             <label class="label">Correo</label>
             <input class="input" formControlName="email" type="email" />
             <div class="error" *ngIf="isInvalid('email')">Correo invalido.</div>
@@ -125,6 +143,9 @@ export class ClienteCreateComponent {
 
   readonly form = this.fb.nonNullable.group({
     nombre: ['', [Validators.required, Validators.maxLength(120)]],
+    username: ['', [Validators.required, Validators.minLength(4), Validators.maxLength(120)]],
+    password: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(128)]],
+    password_confirm: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(128)]],
     email: ['', [Validators.email, Validators.maxLength(120)]],
     telefono: ['', [Validators.maxLength(30)]],
     activo: [true],
@@ -141,9 +162,18 @@ export class ClienteCreateComponent {
     private readonly router: Router,
   ) {}
 
-  isInvalid(control: 'nombre' | 'email' | 'telefono'): boolean {
+  isInvalid(control: 'nombre' | 'username' | 'password' | 'email' | 'telefono'): boolean {
     const c = this.form.controls[control];
     return c.invalid && (c.touched || c.dirty);
+  }
+
+  get passwordMismatch(): boolean {
+    const password = this.form.controls.password.value;
+    const confirm = this.form.controls.password_confirm.value;
+    if (!confirm) {
+      return false;
+    }
+    return password !== confirm;
   }
 
   submit(): void {
@@ -151,7 +181,7 @@ export class ClienteCreateComponent {
       return;
     }
 
-    if (this.form.invalid) {
+    if (this.form.invalid || this.passwordMismatch) {
       this.form.markAllAsTouched();
       return;
     }
@@ -159,6 +189,8 @@ export class ClienteCreateComponent {
     const raw = this.form.getRawValue();
     const payload = {
       nombre: raw.nombre.trim(),
+      username: raw.username.trim(),
+      password: raw.password,
       email: this.optional(raw.email),
       telefono: this.optional(raw.telefono),
       activo: !!raw.activo,

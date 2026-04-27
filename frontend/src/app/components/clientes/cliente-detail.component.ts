@@ -15,23 +15,52 @@ import type { ClienteDto, VehiculoDto } from '../../services/cliente.service';
     <section class="card page-block" *ngIf="cliente; else notFound">
       <header class="head">
         <div>
-          <h2>Editar cliente</h2>
-          <p class="muted">Actualiza datos del cliente. El registro de vehiculo es opcional.</p>
+          <h2>{{ isEditMode ? 'Editar cliente' : 'Ver cliente' }}</h2>
+          <p class="muted" *ngIf="isEditMode">Actualiza datos del cliente (excepto nombre/usuario/contrasena). El registro de vehiculo es opcional.</p>
+          <p class="muted" *ngIf="!isEditMode">Consulta los datos generales y los vehiculos registrados.</p>
         </div>
-        <a [routerLink]="['/app/clientes']" class="btn btn-ghost">Volver al listado</a>
+        <div style="display:flex; gap:0.6rem;">
+          <a *ngIf="!isEditMode" [routerLink]="['/app/clientes', clienteId]" [queryParams]="{ mode: 'edit' }" class="btn btn-primary">Editar cliente</a>
+          <a *ngIf="isEditMode" [routerLink]="['/app/clientes', clienteId]" class="btn btn-ghost">Ver cliente</a>
+          <a [routerLink]="['/app/clientes']" class="btn btn-ghost">Volver al listado</a>
+        </div>
       </header>
 
       <p class="error" *ngIf="errorMsg">{{ errorMsg }}</p>
 
-      <form class="card inner" [formGroup]="form" (ngSubmit)="saveCliente()">
+      <section class="card inner" *ngIf="!isEditMode">
         <h3>Datos del cliente</h3>
         <div class="form-grid">
           <div>
             <label class="label">Nombre</label>
-            <input class="input" formControlName="nombre" />
-            <small class="error" *ngIf="form.get('nombre')?.invalid && form.get('nombre')?.touched">Nombre requerido</small>
+            <input class="input" [value]="cliente.nombre || 'N/A'" disabled />
           </div>
 
+          <div>
+            <label class="label">Usuario</label>
+            <input class="input" [value]="cliente.username || 'N/A'" disabled />
+          </div>
+
+          <div>
+            <label class="label">Correo</label>
+            <input class="input" [value]="cliente.email || 'N/A'" disabled />
+          </div>
+
+          <div>
+            <label class="label">Telefono</label>
+            <input class="input" [value]="cliente.telefono || 'N/A'" disabled />
+          </div>
+
+          <div>
+            <label class="label">Estado</label>
+            <input class="input" [value]="cliente.activo !== false ? 'Activo' : 'Inactivo'" disabled />
+          </div>
+        </div>
+      </section>
+
+      <form class="card inner" [formGroup]="form" (ngSubmit)="saveCliente()" *ngIf="isEditMode">
+        <h3>Datos del cliente</h3>
+        <div class="form-grid">
           <div>
             <label class="label">Correo</label>
             <input class="input" type="email" formControlName="email" />
@@ -167,10 +196,10 @@ export class ClienteDetailComponent implements OnInit {
   vehiculos: VehiculoDto[] = [];
   loading = false;
   loadingVehiculos = false;
+  isEditMode = false;
   errorMsg = '';
 
   readonly form = this.fb.nonNullable.group({
-    nombre: ['', [Validators.required, Validators.maxLength(120)]],
     email: ['', [Validators.email, Validators.maxLength(120)]],
     telefono: ['', [Validators.maxLength(30)]],
     activo: [true],
@@ -194,11 +223,14 @@ export class ClienteDetailComponent implements OnInit {
     }
 
     this.clienteId = id;
+    this.route.queryParamMap.subscribe((params) => {
+      this.isEditMode = params.get('mode') === 'edit';
+    });
+
     this.api.get(id).subscribe({
       next: (c) => {
         this.cliente = c;
         this.form.patchValue({
-          nombre: c.nombre || '',
           email: c.email || '',
           telefono: c.telefono || '',
           activo: c.activo !== false,
@@ -234,7 +266,6 @@ export class ClienteDetailComponent implements OnInit {
 
     const raw = this.form.getRawValue();
     const clientePayload = {
-      nombre: raw.nombre.trim(),
       email: this.optional(raw.email),
       telefono: this.optional(raw.telefono),
       activo: !!raw.activo,

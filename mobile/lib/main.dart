@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/admin/admin_home_screen.dart';
+import 'screens/client/client_home_screen.dart';
 import 'screens/employee/employee_home_screen.dart';
 import 'core/theme.dart';
 
@@ -50,6 +51,8 @@ class AuthCheck extends StatelessWidget {
     final userRole = authProvider.userRole;
     if (userRole == 'admin') {
       return const AdminHomeScreen();
+    } else if (userRole == 'cliente') {
+      return const ClientHomeScreen();
     } else if (userRole == 'empleado') {
       return const EmployeeHomeScreen();
     }
