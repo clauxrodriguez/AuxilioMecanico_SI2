@@ -1,2 +1,17 @@
-.muted { color: var(--muted); }
-.muted { color: var(--muted); }
+.page-block {
+	padding: 1rem;
+}
+
+.head {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.muted {
+	color: var(--muted);
+}
+
+.badge--inactive {
+	background: #64748b;
+}

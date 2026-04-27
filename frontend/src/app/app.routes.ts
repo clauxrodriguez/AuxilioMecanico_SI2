@@ -47,6 +47,7 @@ export const appRoutes: Routes = [
       },
       { path: 'vehiculos', component: VehiculosComponent },
       { path: 'incidentes', component: IncidentesComponent },
+      { path: 'incidentes/lista', component: IncidentesComponent },
     ],
   },
   { path: '**', redirectTo: '' },

@@ -23,6 +23,52 @@ def upgrade() -> None:
     inspector = sa.inspect(bind)
     tables = set(inspector.get_table_names())
 
+    if "incidente" not in tables:
+        op.create_table(
+            "incidente",
+            sa.Column("id", sa.String(length=36), nullable=False),
+            sa.Column("cliente_id", sa.String(length=36), nullable=True),
+            sa.Column("vehiculo_id", sa.String(length=36), nullable=True),
+            sa.Column("tipo", sa.String(length=100), nullable=True),
+            sa.Column("descripcion", sa.Text(), nullable=True),
+            sa.Column("estado", sa.String(length=50), nullable=False),
+            sa.Column("prioridad", sa.Integer(), nullable=True),
+            sa.Column("latitud", sa.Numeric(precision=9, scale=6), nullable=True),
+            sa.Column("longitud", sa.Numeric(precision=9, scale=6), nullable=True),
+            sa.Column("creado_en", sa.DateTime(timezone=True), nullable=False),
+            sa.ForeignKeyConstraint(["cliente_id"], ["cliente.id"], ondelete="SET NULL"),
+            sa.ForeignKeyConstraint(["vehiculo_id"], ["vehiculo.id"], ondelete="SET NULL"),
+            sa.PrimaryKeyConstraint("id"),
+        )
+        tables.add("incidente")
+
+    if "evidencia" not in tables:
+        op.create_table(
+            "evidencia",
+            sa.Column("id", sa.String(length=36), nullable=False),
+            sa.Column("incidente_id", sa.String(length=36), nullable=False),
+            sa.Column("tipo", sa.String(length=50), nullable=False),
+            sa.Column("url_archivo", sa.String(length=255), nullable=True),
+            sa.Column("texto", sa.Text(), nullable=True),
+            sa.ForeignKeyConstraint(["incidente_id"], ["incidente.id"], ondelete="CASCADE"),
+            sa.PrimaryKeyConstraint("id"),
+        )
+        tables.add("evidencia")
+
+    if "diagnostico" not in tables:
+        op.create_table(
+            "diagnostico",
+            sa.Column("id", sa.String(length=36), nullable=False),
+            sa.Column("incidente_id", sa.String(length=36), nullable=False),
+            sa.Column("clasificacion", sa.Integer(), nullable=True),
+            sa.Column("resumen", sa.Text(), nullable=True),
+            sa.Column("prioridad", sa.Integer(), nullable=True),
+            sa.Column("creado_en", sa.DateTime(timezone=True), nullable=False),
+            sa.ForeignKeyConstraint(["incidente_id"], ["incidente.id"], ondelete="CASCADE"),
+            sa.PrimaryKeyConstraint("id"),
+        )
+        tables.add("diagnostico")
+
     if "empresa" in tables:
         empresa_columns = {column["name"] for column in inspector.get_columns("empresa")}
         if "latitud" not in empresa_columns:

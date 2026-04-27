@@ -41,6 +41,15 @@ def clientes_me(user: User = Depends(get_current_user), db: Session = Depends(ge
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente no encontrado")
 
 
+@router.put("/me/", response_model=ClienteOut)
+def clientes_update_me(payload: ClienteUpdate, user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> ClienteOut:
+    try:
+        cliente = get_cliente_for_user_or_404(db, user.id)
+        return update_cliente(db, cliente, payload)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente no encontrado")
+
+
 @router.get("/me/vehiculos", response_model=list[VehiculoOut])
 def cliente_list_my_vehiculos(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> list[VehiculoOut]:
     try:

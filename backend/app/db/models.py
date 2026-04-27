@@ -205,16 +205,38 @@ class Incidente(Base):
     prioridad: Mapped[int | None] = mapped_column(Integer, nullable=True)
     latitud: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
     longitud: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
-    empleado_asignado_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("empleado.id", ondelete="SET NULL"), nullable=True)
-    taller_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
-    tiempo_estimado_minutos: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Assignment-related fields were moved to `asignacion_servicio` to
+    # keep `incidente` as a pure client request (solicitud).
+    # Legacy columns (empleado_asignado_id, taller_id, tiempo_estimado_minutos)
+    # are removed from the ORM model and handled by a migration.
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     cliente: Mapped[Cliente | None] = relationship()
     vehiculo: Mapped[Vehiculo | None] = relationship()
-    empleado_asignado: Mapped[Empleado | None] = relationship()
+    # assignment relationship is available through AsignacionServicio model
     evidencias: Mapped[list["Evidencia"]] = relationship(back_populates="incidente")
     diagnosticos: Mapped[list["Diagnostico"]] = relationship(back_populates="incidente")
+
+
+class AsignacionServicio(Base):
+    __tablename__ = "asignacion_servicio"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    incidente_id: Mapped[str] = mapped_column(String(36), ForeignKey("incidente.id", ondelete="CASCADE"), nullable=False)
+    empleado_id: Mapped[str] = mapped_column(String(36), ForeignKey("empleado.id", ondelete="RESTRICT"), nullable=False)
+    servicio_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    empresa_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    estado_tarea: Mapped[str] = mapped_column(String(50), nullable=False, default="asignada")
+    tiempo_estimado_llegada_minutos: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    costo_servicio: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    porcentaje_comision: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    monto_comision: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    fecha_asignacion: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    fecha_cierre: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    motivo_cancelacion: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    incidente: Mapped[Incidente] = relationship()
+    empleado: Mapped[Empleado] = relationship()
 
 
 class Evidencia(Base):

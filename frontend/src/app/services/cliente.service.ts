@@ -70,6 +70,10 @@ export class ClienteApiService {
     return this.http.get<ClienteDto>(`${this.base}/clientes/me/`);
   }
 
+  updateMe(patch: ClienteUpdatePayload) {
+    return this.http.put<ClienteDto>(`${this.base}/clientes/me/`, patch);
+  }
+
   listMyVehiculos() {
     return this.http.get<VehiculoDto[]>(`${this.base}/clientes/me/vehiculos`);
   }

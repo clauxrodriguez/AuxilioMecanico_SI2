@@ -7,14 +7,12 @@ export interface IncidenteDto {
   id: string;
   cliente_id?: string;
   vehiculo_id?: string;
-  empleado_asignado_id?: string;
   tipo?: string;
   descripcion?: string;
   estado: string;
   prioridad?: number;
   latitud?: number;
   longitud?: number;
-  tiempo_estimado_minutos?: number;
   creado_en: string;
 }
 
@@ -51,7 +49,8 @@ export interface IncidenteTrackingDto {
   estado: string;
   latitud_incidente?: number;
   longitud_incidente?: number;
-  empleado_asignado_id?: string;
+  asignacion_id?: string;
+  empleado_id?: string;
   tecnico_nombre?: string;
   tecnico_latitud?: number;
   tecnico_longitud?: number;
@@ -63,6 +62,12 @@ export interface DiagnosticoCreate {
   clasificacion?: number | null;
   resumen?: string | null;
   prioridad?: number | null;
+}
+
+export interface EvidenciaUploadResponse {
+  id: string;
+  url_archivo: string;
+  tipo: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -94,6 +99,14 @@ export class IncidenteApiService {
   addEvidencia(id: string, tipo: string, archivo: string) {
     // send as url_archivo to match backend field naming
     return this.http.post(`${this.base}/incidentes/${id}/evidencias`, { tipo, url_archivo: archivo });
+  }
+
+  uploadEvidenciaArchivo(id: string, file: File, tipo?: string, texto?: string) {
+    const form = new FormData();
+    form.append('archivo', file, file.name);
+    if (tipo) form.append('tipo', tipo);
+    if (texto) form.append('texto', texto);
+    return this.http.post<EvidenciaUploadResponse>(`${this.base}/incidentes/${id}/evidencias/upload`, form);
   }
 
   assignTecnico(id: string, payload: AsignarTecnicoRequest) {

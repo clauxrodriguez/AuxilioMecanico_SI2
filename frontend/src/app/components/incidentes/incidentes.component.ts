@@ -2,6 +2,8 @@ import { CommonModule } from '@angular/common';
 import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClientModule } from '@angular/common/http';
+import { forkJoin } from 'rxjs';
+import { Router } from '@angular/router';
 
 import {
   IncidenteApiService,
@@ -10,6 +12,7 @@ import {
   TecnicoCercanoDto,
 } from '../../services/incidente.service';
 import { AuthService } from '../../services/auth/auth.service';
+import { ClienteApiService, VehiculoDto } from '../../services/cliente.service';
 
 @Component({
   selector: 'app-incidentes',
@@ -18,30 +21,127 @@ import { AuthService } from '../../services/auth/auth.service';
   template: `
     <div class="card">
       <header class="head">
-        <h3>{{ isClient ? 'Mis incidentes' : 'Incidentes y Ubicaciones (Realtime)' }}</h3>
+        <h3>{{ isClient && showIncidentList ? 'Incidentes' : isClient ? 'Solicitud de Auxilio' : 'Incidentes y Ubicaciones (Realtime)' }}</h3>
       </header>
 
-      <section class="panel" style="margin-bottom: 1rem;">
-        <h4>Nuevo incidente / Solicitud de auxilio</h4>
-        <div class="form-grid">
-          <input [(ngModel)]="createForm.tipo" placeholder="Tipo (grúa, batería, pinchazo...)" />
-          <input [(ngModel)]="createForm.descripcion" placeholder="Descripción" />
-          <input [(ngModel)]="createForm.vehiculo_id" placeholder="Vehículo ID (opcional)" />
-          <input [(ngModel)]="createForm.prioridad" type="number" min="1" max="5" placeholder="Prioridad (1-5)" />
-          <input [(ngModel)]="createForm.latitud" type="number" step="0.000001" placeholder="Latitud" />
-          <input [(ngModel)]="createForm.longitud" type="number" step="0.000001" placeholder="Longitud" />
+      <section class="panel" style="margin-bottom: 1rem;" *ngIf="!isClient || !showIncidentList">
+        <h4>{{ isClient ? 'Solicitud de Auxilio' : 'Nuevo incidente / Solicitud de auxilio' }}</h4>
+
+        <ng-container *ngIf="isClient; else staffIncidentForm">
+          <div class="request-layout">
+            <div class="map-stack">
+              <div class="section-caption">
+                <strong>Mapa de ubicación</strong>
+                <span class="muted">Tu ubicación actual en vivo aparece en rojo.</span>
+              </div>
+              <div #reportMap class="map-canvas map-large"></div>
+              <div class="muted tiny">Ubicación actual sincronizada.</div>
+              <div style="display:flex; gap:0.5rem; flex-wrap: wrap;">
+                <button class="btn btn-ghost" (click)="useBrowserLocationForIncident()">Recentrar mi ubicación</button>
+                <button class="btn btn-ghost" [class.active]="watchPositionId != null" (click)="toggleRealtimeLocation()">
+                  {{ watchPositionId == null ? 'Activar ubicación en tiempo real' : 'Detener ubicación en tiempo real' }}
+                </button>
+              </div>
+            </div>
+
+            <div class="request-form-card">
+              <div class="stack-gap">
+                <div>
+                  <label class="label">Vehículo</label>
+                  <select class="input input-lg" [(ngModel)]="createForm.vehiculo_id">
+                    <option value="">Selecciona un vehículo</option>
+                    <option *ngFor="let v of myVehicles" [value]="v.id">{{ v.marca || 'N/A' }} {{ v.modelo || '' }} - {{ v.placa || 'N/A' }}</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label class="label">Tipo de falla o incidente</label>
+                  <input class="input input-lg" [(ngModel)]="createForm.tipo" placeholder="Pinchazo, batería, grúa, motor, etc." />
+                </div>
+
+                <div>
+                  <label class="label">Descripción del detalle del incidente</label>
+                  <textarea
+                    class="input text-area"
+                    [(ngModel)]="createForm.descripcion"
+                    rows="9"
+                    placeholder="Describe el incidente con detalle. También puedes grabar voz abajo."></textarea>
+                  <div class="voice-controls">
+                    <button class="btn btn-primary" type="button" [class.active]="recordingVoice" (click)="toggleVoiceRecording()">
+                      {{ recordingVoice ? 'Detener grabación' : 'Grabar voz' }}
+                    </button>
+                    <span class="muted tiny" *ngIf="recordingVoice">Grabando audio...</span>
+                    <span class="muted tiny" *ngIf="audioEvidenceFile">Audio listo: {{ audioEvidenceFile.name }}</span>
+                  </div>
+                  <audio *ngIf="voicePreviewUrl" [src]="voicePreviewUrl" controls style="width: 100%; margin-top: 0.6rem;"></audio>
+                </div>
+
+                <section class="evidence-box">
+                  <button class="btn btn-ghost" type="button" [class.active]="showEvidencePanel" (click)="showEvidencePanel = !showEvidencePanel">Agregar evidencias</button>
+                  <div *ngIf="showEvidencePanel" class="evidence-panel">
+                    <div>
+                      <label class="label">Imágenes</label>
+                      <input class="input input-file" type="file" accept="image/*" multiple (change)="onImageEvidenceSelected($event)" />
+                    </div>
+                    <div class="muted tiny" *ngIf="imageEvidenceFiles.length > 0">Imágenes seleccionadas: {{ imageEvidenceFiles.length }}</div>
+                  </div>
+                </section>
+
+                <div style="display:flex; gap:0.5rem; flex-wrap: wrap;">
+                  <button class="btn btn-primary btn-submit" type="button" (click)="createIncident()">Enviar Solicitud de Auxilio</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+
+        <ng-template #staffIncidentForm>
+          <div class="form-grid">
+            <input class="input" [(ngModel)]="createForm.tipo" placeholder="Tipo (grúa, batería, pinchazo...)" />
+            <input class="input" [(ngModel)]="createForm.descripcion" placeholder="Descripción" />
+            <input class="input" [(ngModel)]="createForm.vehiculo_id" placeholder="Vehículo ID (opcional)" />
+            <input class="input" [(ngModel)]="createForm.prioridad" type="number" min="1" max="5" placeholder="Prioridad (1-5)" />
+            <input class="input" [(ngModel)]="createForm.latitud" type="number" step="0.000001" placeholder="Latitud" />
+            <input class="input" [(ngModel)]="createForm.longitud" type="number" step="0.000001" placeholder="Longitud" />
+          </div>
+          <div class="muted" style="margin-top: 0.5rem;">
+            Mi posición actual: {{ currentLat ?? 'N/A' }}, {{ currentLng ?? 'N/A' }}
+          </div>
+          <div #reportMap class="map-canvas" style="margin-top: 0.75rem;"></div>
+          <div style="display:flex; gap:0.5rem; margin-top:0.75rem; flex-wrap: wrap;">
+            <button class="btn" (click)="useBrowserLocationForIncident()">Usar mi ubicación</button>
+            <button class="btn btn-ghost" (click)="toggleRealtimeLocation()">
+              {{ watchPositionId == null ? 'Iniciar ubicación en tiempo real' : 'Detener ubicación en tiempo real' }}
+            </button>
+          </div>
+        </ng-template>
+
+      </section>
+
+      <section class="panel" *ngIf="isClient && showIncidentList">
+        <div class="section-head" style="margin-bottom: 0.75rem;">
+          <div>
+            <h4>Incidentes</h4>
+            <p class="muted">Historial y seguimiento de tus solicitudes.</p>
+          </div>
+          <button class="btn btn-ghost" type="button" (click)="load()">Actualizar</button>
         </div>
-        <div class="muted" style="margin-top: 0.5rem;">
-          Mi posición actual: {{ currentLat ?? 'N/A' }}, {{ currentLng ?? 'N/A' }}
-        </div>
-        <div #reportMap class="map-canvas" style="margin-top: 0.75rem;"></div>
-        <div style="display:flex; gap:0.5rem; margin-top:0.75rem; flex-wrap: wrap;">
-          <button class="btn" (click)="useBrowserLocationForIncident()">Usar mi ubicación</button>
-          <button class="btn btn-ghost" (click)="toggleRealtimeLocation()">
-            {{ watchPositionId == null ? 'Iniciar ubicación en tiempo real' : 'Detener ubicación en tiempo real' }}
-          </button>
-          <button class="btn" (click)="createIncident()">Crear incidente</button>
-        </div>
+
+        <div *ngIf="loading" class="muted">Cargando incidentes...</div>
+        <div *ngIf="!loading && incidents.length === 0" class="muted">No hay incidentes.</div>
+
+        <ul *ngIf="incidents.length > 0">
+          <li *ngFor="let it of incidents" class="incident-row">
+            <div>
+              <strong>{{ it.tipo || 'Incidente' }}</strong>
+              <div class="muted">{{ it.descripcion }}</div>
+              <div class="muted">Estado: {{ it.estado }}</div>
+            </div>
+            <div style="display:flex; gap:0.5rem; flex-wrap: wrap; justify-content:flex-end;">
+              <button class="btn btn-ghost" (click)="openTracking(it)">Ver tracking</button>
+            </div>
+          </li>
+        </ul>
       </section>
 
       <section class="panel" style="margin-bottom: 1rem;" *ngIf="!isClient">
@@ -78,20 +178,21 @@ import { AuthService } from '../../services/auth/auth.service';
         </ul>
       </section>
 
-      <div *ngIf="loading" class="muted">Cargando incidentes...</div>
-      <div *ngIf="!loading && incidents.length === 0" class="muted">No hay incidentes.</div>
-
-      <ul>
-        <li *ngFor="let it of incidents" style="margin:0.5rem 0; display:flex; justify-content:space-between; align-items:center">
-          <div>
-            <strong>{{ it.tipo || 'Incidente' }}</strong>
-            <div class="muted">{{ it.descripcion }}</div>
-            <div class="muted">Estado: {{ it.estado }} • Prioridad: {{ it.prioridad || 'N/A' }}</div>
-            <div class="muted">Destino: {{ it.latitud ?? 'N/A' }}, {{ it.longitud ?? 'N/A' }}</div>
-            <div class="muted">Técnico asignado: {{ it.empleado_asignado_id || 'Sin asignar' }}</div>
-          </div>
-          <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
-            <ng-container *ngIf="!isClient">
+      <!-- Incidents list shown only as a separate section (not inside the Solicitud form) -->
+      <section class="panel" *ngIf="!isClient">
+        <h4>Incidentes</h4>
+        <div *ngIf="loading" class="muted">Cargando incidentes...</div>
+        <div *ngIf="!loading && incidents.length === 0" class="muted">No hay incidentes.</div>
+        <ul *ngIf="incidents.length > 0">
+          <li *ngFor="let it of incidents" style="margin:0.5rem 0; display:flex; justify-content:space-between; align-items:center">
+            <div>
+              <strong>{{ it.tipo || 'Incidente' }}</strong>
+              <div class="muted">{{ it.descripcion }}</div>
+              <div class="muted">Estado: {{ it.estado }} • Prioridad: {{ it.prioridad || 'N/A' }}</div>
+              <div class="muted">Destino: {{ it.latitud ?? 'N/A' }}, {{ it.longitud ?? 'N/A' }}</div>
+              <div class="muted">Técnico asignado: Ver asignación</div>
+            </div>
+            <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
               <select [(ngModel)]="it.estado">
                 <option value="pendiente">pendiente</option>
                 <option value="en_proceso">en_proceso</option>
@@ -100,22 +201,40 @@ import { AuthService } from '../../services/auth/auth.service';
               <button class="btn" (click)="saveStatus(it)">Guardar</button>
               <input [(ngModel)]="asignaciones[it.id]" placeholder="empleado_id" />
               <button class="btn btn-ghost" (click)="assignTecnico(it)">Asignar técnico</button>
-            </ng-container>
-            <button class="btn btn-ghost" (click)="openTracking(it)">Ver tracking</button>
-            <button class="btn btn-ghost" (click)="addDiagPrompt(it)" *ngIf="!isClient">Añadir diagnóstico</button>
-            <button class="btn btn-ghost" (click)="addEvidPrompt(it)" *ngIf="!isClient">Añadir evidencia</button>
-          </div>
-        </li>
-      </ul>
+              <button class="btn btn-ghost" (click)="openTracking(it)">Ver tracking</button>
+              <button class="btn btn-ghost" (click)="addDiagPrompt(it)">Añadir diagnóstico</button>
+              <button class="btn btn-ghost" (click)="addEvidPrompt(it)">Añadir evidencia</button>
+            </div>
+          </li>
+        </ul>
+      </section>
 
       <div *ngIf="message" class="muted" style="margin-top:1rem;">{{ message }}</div>
     </div>
   `,
   styles: [
+    `.btn.active { background: var(--brand); color: #fff; border-color: rgba(59,130,246,0.9); }`,
     `.muted { color: var(--muted); }`,
+    `.tiny { font-size: 0.85rem; }`,
     `.panel { border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 0.75rem; }`,
     `.form-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:0.5rem; }`,
-    `.map-canvas { height: 280px; width: 100%; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); }`,
+    `.input { width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); color: var(--text); border-radius: 14px; padding: 0.8rem 0.95rem; outline: none; }`,
+    `.input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18); }`,
+    `.input-lg { min-height: 48px; }`,
+    `.text-area { min-height: 180px; resize: vertical; }`,
+    `.input-file { padding: 0.7rem; }`,
+    `.request-layout { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 1rem; align-items: start; }`,
+    `.map-stack { display: grid; gap: 0.75rem; }`,
+    `.request-form-card { border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 1rem; background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)); }`,
+    `.stack-gap { display: grid; gap: 0.95rem; }`,
+    `.section-caption { display:flex; flex-direction: column; gap: 0.15rem; }`,
+    `.map-canvas { width: 100%; border-radius: 16px; border: 1px solid rgba(255,255,255,0.12); }`,
+    `.map-large { height: 420px; }`,
+    `.voice-controls { display:flex; align-items:center; gap:0.75rem; flex-wrap: wrap; margin-top: 0.55rem; }`,
+    `.evidence-box { border: 1px dashed rgba(255,255,255,0.18); border-radius: 16px; padding: 0.85rem; background: rgba(255,255,255,0.02); }`,
+    `.evidence-panel { display:grid; gap:0.6rem; margin-top: 0.75rem; }`,
+    `.incident-row { margin:0.5rem 0; display:flex; justify-content:space-between; align-items:center; gap:0.75rem; }`,
+    `@media (max-width: 980px) { .request-layout { grid-template-columns: 1fr; } .map-large { height: 340px; } }`,
   ],
 })
 export class IncidentesComponent implements OnInit, AfterViewInit, OnDestroy {
@@ -129,6 +248,9 @@ export class IncidentesComponent implements OnInit, AfterViewInit, OnDestroy {
   private currentLocationMarker: any;
   private trackingIncidentMarker: any;
   private trackingTechMarker: any;
+  private voiceRecorder: MediaRecorder | null = null;
+  private voiceChunks: BlobPart[] = [];
+  private voiceStream: MediaStream | null = null;
 
   private trackingSocket: WebSocket | null = null;
   private trackingPingTimer: ReturnType<typeof setInterval> | null = null;
@@ -139,13 +261,20 @@ export class IncidentesComponent implements OnInit, AfterViewInit, OnDestroy {
   currentLng: number | null = null;
 
   incidents: IncidenteDto[] = [];
+  myVehicles: VehiculoDto[] = [];
   selectedTracking: IncidenteTrackingDto | null = null;
   tecnicosCercanos: TecnicoCercanoDto[] = [];
   asignaciones: Record<string, string> = {};
+  showEvidencePanel = false;
+  imageEvidenceFiles: File[] = [];
+  audioEvidenceFile: File | null = null;
+  recordingVoice = false;
+  voicePreviewUrl: string | null = null;
   message = '';
   miDisponible = true;
   isClient = false;
   clienteId: string | null = null;
+  showIncidentList = false;
 
   createForm: {
     vehiculo_id: string;
@@ -164,15 +293,22 @@ export class IncidentesComponent implements OnInit, AfterViewInit, OnDestroy {
   };
 
   loading = false;
+  liveLocationEnabled = true;
 
   constructor(
     private api: IncidenteApiService,
     private auth: AuthService,
+    private clienteApi: ClienteApiService,
+    private router: Router,
   ) {}
 
   ngOnInit(): void {
     this.isClient = this.auth.isClient;
     this.clienteId = this.auth.currentUser?.cliente_id || null;
+    this.showIncidentList = this.isClient && this.router.url.includes('/incidentes/lista');
+    if (this.isClient) {
+      this.loadMyVehicles();
+    }
     this.load();
   }
 
@@ -185,6 +321,10 @@ export class IncidentesComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.stopRealtimeLocation();
     this.disconnectTrackingSocket();
+    this.stopClientLiveLocation();
+    if (this.voicePreviewUrl) {
+      URL.revokeObjectURL(this.voicePreviewUrl);
+    }
   }
 
   private async initLeaflet(): Promise<void> {
@@ -259,13 +399,43 @@ export class IncidentesComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.currentLocationMarker) {
       this.currentLocationMarker = this.L.circleMarker([lat, lng], {
         radius: 8,
-        color: '#22c55e',
-        fillColor: '#22c55e',
+        color: this.isClient ? '#ef4444' : '#22c55e',
+        fillColor: this.isClient ? '#ef4444' : '#22c55e',
         fillOpacity: 0.8,
       }).addTo(this.reportMap);
     } else {
       this.currentLocationMarker.setLatLng([lat, lng]);
+      this.currentLocationMarker.setStyle({
+        color: this.isClient ? '#ef4444' : '#22c55e',
+        fillColor: this.isClient ? '#ef4444' : '#22c55e',
+      });
     }
+  }
+
+  private startClientLiveLocation(): void {
+    if (!navigator.geolocation || this.watchPositionId != null) {
+      return;
+    }
+
+    this.watchPositionId = navigator.geolocation.watchPosition(
+      (position) => {
+        const lat = Number(position.coords.latitude.toFixed(6));
+        const lng = Number(position.coords.longitude.toFixed(6));
+        this.setCurrentLocation(lat, lng);
+      },
+      () => {
+        this.message = 'No se pudo obtener tu ubicación en tiempo real';
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 4000,
+        timeout: 12000,
+      },
+    );
+  }
+
+  private stopClientLiveLocation(): void {
+    this.stopRealtimeLocation();
   }
 
   private updateTrackingMap(): void {
@@ -378,20 +548,110 @@ export class IncidentesComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  loadMyVehicles() {
+    this.clienteApi.listMyVehiculos().subscribe({
+      next: (rows) => {
+        this.myVehicles = rows || [];
+      },
+      error: () => {
+        this.message = 'No se pudieron cargar tus vehículos';
+      },
+    });
+  }
+
+  async toggleVoiceRecording() {
+    if (this.recordingVoice) {
+      await this.stopVoiceRecording();
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      this.message = 'Tu navegador no permite grabar audio';
+      return;
+    }
+
+    try {
+      this.voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this.voiceChunks = [];
+      this.voiceRecorder = new MediaRecorder(this.voiceStream);
+      this.recordingVoice = true;
+      this.voiceRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          this.voiceChunks.push(event.data);
+        }
+      };
+      this.voiceRecorder.onstop = () => {
+        const blob = new Blob(this.voiceChunks, { type: 'audio/webm' });
+        if (this.voicePreviewUrl) {
+          URL.revokeObjectURL(this.voicePreviewUrl);
+        }
+        this.voicePreviewUrl = URL.createObjectURL(blob);
+        this.audioEvidenceFile = new File([blob], `voz-${Date.now()}.webm`, { type: blob.type });
+        this.recordingVoice = false;
+        this.voiceStream?.getTracks().forEach((track) => track.stop());
+        this.voiceStream = null;
+      };
+      this.voiceRecorder.start();
+    } catch {
+      this.message = 'No se pudo iniciar la grabación de voz';
+      this.recordingVoice = false;
+      this.voiceStream?.getTracks().forEach((track) => track.stop());
+      this.voiceStream = null;
+    }
+  }
+
+  private stopVoiceRecording(): Promise<void> {
+    return new Promise((resolve) => {
+      if (!this.voiceRecorder || this.voiceRecorder.state === 'inactive') {
+        this.recordingVoice = false;
+        resolve();
+        return;
+      }
+
+      this.voiceRecorder.addEventListener('stop', () => resolve(), { once: true });
+      this.voiceRecorder.stop();
+    });
+  }
+
+  onImageEvidenceSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const files = input.files ? Array.from(input.files) : [];
+    this.imageEvidenceFiles = files;
+  }
+
+  onAudioEvidenceSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files && input.files.length > 0 ? input.files[0] : null;
+    this.audioEvidenceFile = file;
+  }
+
   saveStatus(it: IncidenteDto) {
     this.api.update(it.id, { estado: it.estado }).subscribe({ next: () => this.load() });
   }
 
   createIncident() {
+    if (this.isClient) {
+      const hasText = !!this.createForm.descripcion?.trim();
+      const hasAudio = !!this.audioEvidenceFile;
+      if (!this.createForm.vehiculo_id || !this.createForm.tipo || !this.createForm.latitud || !this.createForm.longitud || (!hasText && !hasAudio)) {
+        this.message = 'Debes completar vehículo, tipo, mapa y descripción en texto o audio';
+        return;
+      }
+    }
+
     this.api.create({
       vehiculo_id: this.createForm.vehiculo_id || undefined,
       tipo: this.createForm.tipo || undefined,
-      descripcion: this.createForm.descripcion || undefined,
-      prioridad: this.createForm.prioridad ?? undefined,
+      descripcion: this.createForm.descripcion || (this.isClient && this.audioEvidenceFile ? 'Descripción adjunta en audio.' : undefined),
+      prioridad: this.isClient ? undefined : (this.createForm.prioridad ?? undefined),
       latitud: this.createForm.latitud ?? undefined,
       longitud: this.createForm.longitud ?? undefined,
     }).subscribe({
-      next: () => {
+      next: (created) => {
+        if (this.isClient) {
+          this.uploadClientEvidences(created.id);
+          return;
+        }
         this.message = 'Incidente creado correctamente';
         this.load();
       },
@@ -399,6 +659,50 @@ export class IncidentesComponent implements OnInit, AfterViewInit, OnDestroy {
         this.message = 'No se pudo crear el incidente';
       },
     });
+  }
+
+  private uploadClientEvidences(incidenteId: string) {
+    const uploads = [
+      ...this.imageEvidenceFiles.map((file) => this.api.uploadEvidenciaArchivo(incidenteId, file, 'foto')),
+      ...(this.audioEvidenceFile ? [this.api.uploadEvidenciaArchivo(incidenteId, this.audioEvidenceFile, 'audio')] : []),
+    ];
+
+    if (uploads.length === 0) {
+      this.message = 'Solicitud de auxilio enviada correctamente';
+      this.resetClientRequestForm();
+      this.load();
+      return;
+    }
+
+    forkJoin(uploads).subscribe({
+      next: () => {
+        this.message = 'Solicitud de auxilio y evidencias enviadas correctamente';
+        this.resetClientRequestForm();
+        this.load();
+      },
+      error: () => {
+        this.message = 'La solicitud se creó, pero hubo un error al subir evidencias';
+        this.load();
+      },
+    });
+  }
+
+  private resetClientRequestForm() {
+    this.createForm = {
+      vehiculo_id: '',
+      tipo: '',
+      descripcion: '',
+      prioridad: null,
+      latitud: null,
+      longitud: null,
+    };
+    this.imageEvidenceFiles = [];
+    this.audioEvidenceFile = null;
+    this.showEvidencePanel = false;
+    if (this.voicePreviewUrl) {
+      URL.revokeObjectURL(this.voicePreviewUrl);
+      this.voicePreviewUrl = null;
+    }
   }
 
   assignTecnico(it: IncidenteDto) {

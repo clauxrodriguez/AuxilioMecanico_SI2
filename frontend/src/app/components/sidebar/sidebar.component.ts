@@ -19,7 +19,8 @@ import { AuthService } from '../../services/auth/auth.service';
       <nav>
         <ng-container *ngIf="auth.isClient; else adminMenu">
           <a routerLink="/app/cliente/perfil" routerLinkActive="active">Mi perfil</a>
-          <a routerLink="/app/incidentes" routerLinkActive="active">Mis incidentes</a>
+          <a routerLink="/app/incidentes" routerLinkActive="active">Solicitud de Auxilio</a>
+          <a routerLink="/app/incidentes/lista" routerLinkActive="active">Incidentes</a>
         </ng-container>
         <ng-template #adminMenu>
           <a routerLink="/app/empleados" routerLinkActive="active">Empleados</a>

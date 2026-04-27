@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 from app.schemas.common import ORMModel
 from typing import List
@@ -16,7 +18,8 @@ class IncidenteUpdate(BaseModel):
     estado: str | None = None
     prioridad: int | None = None
     descripcion: str | None = None
-    tiempo_estimado_minutos: int | None = None
+    # tiempo_estimado ahora pertenece a la asignación operativa (asignacion_servicio)
+
 
 
 class AsignarTecnicoRequest(BaseModel):
@@ -43,7 +46,8 @@ class IncidenteTrackingOut(BaseModel):
     estado: str
     latitud_incidente: float | None
     longitud_incidente: float | None
-    empleado_asignado_id: str | None
+    asignacion_id: str | None
+    empleado_id: str | None
     tecnico_nombre: str | None
     tecnico_latitud: float | None
     tecnico_longitud: float | None
@@ -65,21 +69,20 @@ class DiagnosticoOut(ORMModel):
     clasificacion: int | None
     resumen: str | None
     prioridad: int | None
-    creado_en: str
+    creado_en: datetime
 
 
 class IncidenteOut(ORMModel):
     id: str
     cliente_id: str | None
     vehiculo_id: str | None
-    empleado_asignado_id: str | None
     tipo: str | None
     descripcion: str | None
     estado: str
     prioridad: int | None
     latitud: float | None
     longitud: float | None
-    tiempo_estimado_minutos: int | None
-    creado_en: str
+    # assignment fields moved to asignacion_servicio
+    creado_en: datetime
     evidencias: List[EvidenciaOut] | None = []
     diagnosticos: List[DiagnosticoOut] | None = []

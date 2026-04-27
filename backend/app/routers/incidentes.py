@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect, status
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.db.session import get_db
 from app.deps.auth import get_current_employee, get_current_user, require_permission
 from app.schemas.incidente import (
@@ -29,9 +30,12 @@ from app.services.incidente_service import (
     add_diagnostico,
     add_evidencia,
 )
+from app.services.asignacion_service import get_active_asignacion_for_incidente
+from app.services.file_storage import save_incidente_evidence
 from app.services.tracking_ws import tracking_ws_manager
 
 router = APIRouter(prefix="/incidentes", tags=["incidentes"])
+settings = get_settings()
 
 
 @router.get("/", response_model=list[IncidenteOut])
@@ -122,9 +126,12 @@ async def tecnicos_actualizar_mi_ubicacion(
 ) -> dict:
     updated = update_tecnico_ubicacion(db, empleado, payload)
 
+    # broadcast location updates only for incidents where this technician
+    # is actively assigned via asignacion_servicio
     incidentes_asignados = list_incidentes(db)
     for inc in incidentes_asignados:
-        if inc.empleado_asignado_id != updated.id:
+        asign = get_active_asignacion_for_incidente(db, inc.id)
+        if not asign or asign.empleado_id != updated.id:
             continue
 
         tracking = get_incidente_tracking(db, inc)
@@ -222,3 +229,33 @@ def incidentes_add_evid(incidente_id: str, body: dict, user=Depends(get_current_
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incidente no encontrado")
     ev = add_evidencia(db, inc, tipo, url_archivo=url_archivo, texto=texto)
     return {"id": ev.id}
+
+
+@router.post("/{incidente_id}/evidencias/upload", response_model=dict)
+def incidentes_add_evid_file(
+    incidente_id: str,
+    archivo: UploadFile = File(...),
+    tipo: str | None = Form(default=None),
+    texto: str | None = Form(default=None),
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    try:
+        inc = get_incidente_or_404(db, incidente_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incidente no encontrado")
+
+    inferred_tipo = tipo
+    if not inferred_tipo:
+        content_type = (archivo.content_type or "").lower()
+        if content_type.startswith("image/"):
+            inferred_tipo = "foto"
+        elif content_type.startswith("audio/"):
+            inferred_tipo = "audio"
+        else:
+            inferred_tipo = "archivo"
+
+    rel_path = save_incidente_evidence(archivo, incidente_id=inc.id)
+    public_url = f"{settings.media_url.rstrip('/')}/{rel_path}"
+    ev = add_evidencia(db, inc, inferred_tipo, url_archivo=public_url, texto=texto)
+    return {"id": ev.id, "url_archivo": public_url, "tipo": inferred_tipo}

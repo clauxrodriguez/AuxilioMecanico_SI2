@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Cliente, Diagnostico, Empleado, Evidencia, Incidente, Vehiculo
 from app.schemas.incidente import IncidenteCreate, IncidenteUpdate, TecnicoCercanoOut, TecnicoUbicacionUpdate
+from app.services.asignacion_service import create_asignacion, get_active_asignacion_for_incidente
 
 
 def _distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -68,8 +69,8 @@ def update_incidente(db: Session, incidente: Incidente, payload: IncidenteUpdate
         incidente.prioridad = payload.prioridad
     if payload.descripcion is not None:
         incidente.descripcion = payload.descripcion
-    if payload.tiempo_estimado_minutos is not None:
-        incidente.tiempo_estimado_minutos = payload.tiempo_estimado_minutos
+    # ETA / tiempo estimado now belongs to asignacion_servicio and is not
+    # stored on the incidente record.
 
     db.add(incidente)
     db.commit()
@@ -78,6 +79,9 @@ def update_incidente(db: Session, incidente: Incidente, payload: IncidenteUpdate
 
 
 def assign_tecnico(db: Session, incidente: Incidente, empleado_id: str, actor: Empleado | None = None) -> Incidente:
+    # Create an operational assignment record (asignacion_servicio) instead of
+    # mutating the incidente table. The assignment service will validate the
+    # empleado and set empresa_id automatically.
     empleado = db.get(Empleado, empleado_id)
     if not empleado:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Empleado no encontrado")
@@ -85,13 +89,14 @@ def assign_tecnico(db: Session, incidente: Incidente, empleado_id: str, actor: E
     if actor and actor.empresa_id != empleado.empresa_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No puedes asignar técnicos de otro taller")
 
-    incidente.empleado_asignado_id = empleado.id
+    asign = create_asignacion(db, incidente=incidente, empleado_id=empleado.id, empresa_id=empleado.empresa_id)
     if incidente.estado == "pendiente":
         incidente.estado = "en_proceso"
+        db.add(incidente)
+        db.commit()
+        db.refresh(incidente)
 
-    db.add(incidente)
-    db.commit()
-    db.refresh(incidente)
+    # return incidente (unchanged except estado)
     return incidente
 
 
@@ -109,20 +114,24 @@ def update_tecnico_ubicacion(db: Session, empleado: Empleado, payload: TecnicoUb
 
 
 def update_incidente_tecnico_ubicacion(db: Session, incidente: Incidente, empleado: Empleado, payload: TecnicoUbicacionUpdate) -> Empleado:
-    if incidente.empleado_asignado_id != empleado.id:
+    # Only the active assigned technician for the incidente may update location
+    asign = get_active_asignacion_for_incidente(db, incidente.id)
+    if not asign or asign.empleado_id != empleado.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Solo el técnico asignado puede actualizar esta ubicación")
     return update_tecnico_ubicacion(db, empleado, payload)
 
 
 def get_incidente_tracking(db: Session, incidente: Incidente) -> dict:
-    tecnico = db.get(Empleado, incidente.empleado_asignado_id) if incidente.empleado_asignado_id else None
+    asign = get_active_asignacion_for_incidente(db, incidente.id)
+    tecnico = db.get(Empleado, asign.empleado_id) if asign else None
 
     return {
         "incidente_id": incidente.id,
         "estado": incidente.estado,
         "latitud_incidente": float(incidente.latitud) if incidente.latitud is not None else None,
         "longitud_incidente": float(incidente.longitud) if incidente.longitud is not None else None,
-        "empleado_asignado_id": incidente.empleado_asignado_id,
+        "asignacion_id": asign.id if asign else None,
+        "empleado_id": tecnico.id if tecnico else None,
         "tecnico_nombre": tecnico.nombre_completo if tecnico else None,
         "tecnico_latitud": float(tecnico.latitud_actual) if tecnico and tecnico.latitud_actual is not None else None,
         "tecnico_longitud": float(tecnico.longitud_actual) if tecnico and tecnico.longitud_actual is not None else None,
