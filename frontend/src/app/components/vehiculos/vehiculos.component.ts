@@ -28,6 +28,7 @@ import type { VehiculoDto, ClienteDto } from '../../services/cliente.service';
             <div class="muted">Cliente: {{ v.cliente_nombre || v.cliente_id }}</div>
           </div>
           <div style="display:flex;gap:0.5rem">
+            <button class="btn btn-ghost" (click)="edit(v)">Editar</button>
             <button class="btn" (click)="makePrincipal(v)">{{ v.principal ? 'Principal' : 'Hacer principal' }}</button>
             <button class="btn btn-ghost" (click)="remove(v)">Eliminar</button>
           </div>
@@ -78,7 +79,25 @@ export class VehiculosComponent implements OnInit {
     this.api.setPrincipal(v.id).subscribe({ next: () => this.loadAll() });
   }
 
+  edit(v: VehiculoDto): void {
+    const marca = prompt('Marca', v.marca || '') ?? v.marca ?? '';
+    const modelo = prompt('Modelo', v.modelo || '') ?? v.modelo ?? '';
+    const placa = prompt('Placa', v.placa || '') ?? v.placa ?? '';
+    const anioInput = prompt('Año', v.anio ? String(v.anio) : '') ?? (v.anio ? String(v.anio) : '');
+    const anio = anioInput.trim() ? Number(anioInput) : undefined;
+
+    this.api.updateVehiculo(v.id, {
+      marca: marca || undefined,
+      modelo: modelo || undefined,
+      placa: placa || undefined,
+      anio: Number.isNaN(anio) ? undefined : anio,
+    }).subscribe({ next: () => this.loadAll() });
+  }
+
   remove(v: VehiculoDto) {
+    if (!window.confirm(`Eliminar vehículo ${v.placa || v.id}?`)) {
+      return;
+    }
     this.api.deleteVehiculo(v.id).subscribe({ next: () => this.loadAll() });
   }
 }

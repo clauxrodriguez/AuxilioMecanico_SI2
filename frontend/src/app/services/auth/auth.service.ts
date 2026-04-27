@@ -106,6 +106,22 @@ export class AuthService {
     return (user.roles || []).includes(roleName);
   }
 
+  get isClient(): boolean {
+    const user = this.currentUser;
+    if (!user) {
+      return false;
+    }
+    return user.role === 'cliente' || (user.roles || []).includes('cliente');
+  }
+
+  get isAdmin(): boolean {
+    return !!this.currentUser?.is_admin;
+  }
+
+  getDefaultAppRoute(): string {
+    return this.isClient ? '/app/cliente/perfil' : '/app/empleados';
+  }
+
   logout(): void {
     localStorage.removeItem(this.tokenKey);
     localStorage.removeItem(this.refreshKey);

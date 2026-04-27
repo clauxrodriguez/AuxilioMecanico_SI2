@@ -7,6 +7,7 @@ class User {
   final String? lastName;
   final String role; // 'admin' o 'empleado'
   final String? empresaId;
+  final String? clienteId;
   final bool isActive;
   final DateTime? createdAt;
 
@@ -18,6 +19,7 @@ class User {
     this.lastName,
     required this.role,
     this.empresaId,
+    this.clienteId,
     required this.isActive,
     this.createdAt,
   });
@@ -25,8 +27,7 @@ class User {
   /// Crea un User desde JSON del backend
   factory User.fromJson(Map<String, dynamic> json) {
     // Determinar el rol basado en la estructura del backend
-    String role = 'empleado'; // por defecto
-    
+    String role = (json['role'] ?? 'empleado').toString();
     if (json['es_admin'] == true || json['is_admin'] == true) {
       role = 'admin';
     }
@@ -36,6 +37,9 @@ class User {
 
     final rawEmpresaId = json['empresa_id'];
     final parsedEmpresaId = rawEmpresaId == null ? null : rawEmpresaId.toString();
+
+    final rawClienteId = json['cliente_id'];
+    final parsedClienteId = rawClienteId == null ? null : rawClienteId.toString();
 
     final rawCreatedAt = json['created_at'];
     DateTime? parsedCreatedAt;
@@ -51,6 +55,7 @@ class User {
       lastName: json['last_name'],
       role: role,
       empresaId: parsedEmpresaId,
+      clienteId: parsedClienteId,
       isActive: json['is_active'] ?? false,
       createdAt: parsedCreatedAt,
     );
@@ -66,6 +71,7 @@ class User {
       'last_name': lastName,
       'es_admin': role == 'admin',
       'empresa_id': empresaId,
+      'cliente_id': clienteId,
       'is_active': isActive,
     };
   }

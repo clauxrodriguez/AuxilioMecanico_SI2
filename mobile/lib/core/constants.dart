@@ -6,6 +6,8 @@ class AppConstants {
   
   static const String apiPrefix = '/api';
   static const String authEndpoint = '$apiPrefix/auth';
+  static const String clientesEndpoint = '$apiPrefix/clientes';
+  static const String vehiculosEndpoint = '$apiPrefix/vehiculos';
   static const String empleadosEndpoint = '$apiPrefix/empleados';
   static const String rolesEndpoint = '$apiPrefix/roles';
   static const String permisosEndpoint = '$apiPrefix/permisos';

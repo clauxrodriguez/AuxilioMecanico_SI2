@@ -10,17 +10,64 @@ export interface IncidenteDto {
   tipo?: string;
   descripcion?: string;
   estado: string;
-  prioridad?: string;
-  lat?: number;
-  lng?: number;
-  tiempo_estimado_minutos?: number;
+  prioridad?: number;
+  latitud?: number;
+  longitud?: number;
   creado_en: string;
+}
+
+export interface IncidenteCreateRequest {
+  vehiculo_id?: string;
+  tipo?: string;
+  descripcion?: string;
+  prioridad?: number;
+  latitud?: number;
+  longitud?: number;
+}
+
+export interface AsignarTecnicoRequest {
+  empleado_id: string;
+}
+
+export interface TecnicoUbicacionRequest {
+  latitud: number;
+  longitud: number;
+  disponible?: boolean;
+}
+
+export interface TecnicoCercanoDto {
+  empleado_id: string;
+  nombre_completo: string;
+  latitud: number;
+  longitud: number;
+  distancia_km: number;
+  disponible: boolean;
+}
+
+export interface IncidenteTrackingDto {
+  incidente_id: string;
+  estado: string;
+  latitud_incidente?: number;
+  longitud_incidente?: number;
+  asignacion_id?: string;
+  empleado_id?: string;
+  tecnico_nombre?: string;
+  tecnico_latitud?: number;
+  tecnico_longitud?: number;
+  tecnico_disponible?: boolean;
+  tecnico_ubicacion_actualizada_en?: string;
 }
 
 export interface DiagnosticoCreate {
   clasificacion?: number | null;
   resumen?: string | null;
   prioridad?: number | null;
+}
+
+export interface EvidenciaUploadResponse {
+  id: string;
+  url_archivo: string;
+  tipo: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -37,7 +84,7 @@ export class IncidenteApiService {
     return this.http.get<IncidenteDto>(`${this.base}/incidentes/${id}/`);
   }
 
-  create(payload: Partial<IncidenteDto>) {
+  create(payload: IncidenteCreateRequest) {
     return this.http.post<IncidenteDto>(`${this.base}/incidentes/`, payload);
   }
 
@@ -52,5 +99,50 @@ export class IncidenteApiService {
   addEvidencia(id: string, tipo: string, archivo: string) {
     // send as url_archivo to match backend field naming
     return this.http.post(`${this.base}/incidentes/${id}/evidencias`, { tipo, url_archivo: archivo });
+  }
+
+  uploadEvidenciaArchivo(id: string, file: File, tipo?: string, texto?: string) {
+    const form = new FormData();
+    form.append('archivo', file, file.name);
+    if (tipo) form.append('tipo', tipo);
+    if (texto) form.append('texto', texto);
+    return this.http.post<EvidenciaUploadResponse>(`${this.base}/incidentes/${id}/evidencias/upload`, form);
+  }
+
+  assignTecnico(id: string, payload: AsignarTecnicoRequest) {
+    return this.http.post<IncidenteDto>(`${this.base}/incidentes/${id}/asignacion`, payload);
+  }
+
+  updateMiUbicacion(payload: TecnicoUbicacionRequest) {
+    return this.http.patch(`${this.base}/incidentes/tecnicos/mi-ubicacion`, payload);
+  }
+
+  updateUbicacionTecnicoIncidente(id: string, payload: TecnicoUbicacionRequest) {
+    return this.http.patch(`${this.base}/incidentes/${id}/tecnico/ubicacion`, payload);
+  }
+
+  getTracking(id: string) {
+    return this.http.get<IncidenteTrackingDto>(`${this.base}/incidentes/${id}/tracking`);
+  }
+
+  listTecnicosCercanos(latitud: number, longitud: number, radioKm = 5) {
+    return this.http.get<TecnicoCercanoDto[]>(
+      `${this.base}/incidentes/tecnicos/cercanos`,
+      {
+        params: {
+          latitud,
+          longitud,
+          radio_km: radioKm,
+        },
+      },
+    );
+  }
+
+  getTrackingWebSocketUrl(id: string): string {
+    const normalized = this.base.replace(/\/$/, '');
+    const wsBase = normalized.startsWith('https://')
+      ? normalized.replace('https://', 'wss://')
+      : normalized.replace('http://', 'ws://');
+    return `${wsBase}/incidentes/${id}/ws/tracking`;
   }
 }

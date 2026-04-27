@@ -66,11 +66,13 @@ export interface DecodedToken {
   username: string;
   email: string;
   nombre_completo: string;
+  role?: string;
   empresa_id: string | null;
   empresa_nombre: string | null;
   roles: string[];
   is_admin: boolean;
   empleado_id: string | null;
+  cliente_id?: string | null;
   theme_preference: string | null;
   theme_custom_color: string | null;
   theme_glow_enabled: boolean | null;

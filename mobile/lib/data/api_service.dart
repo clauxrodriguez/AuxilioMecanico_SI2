@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../core/constants.dart';
 import '../models/user.dart';
+import '../models/vehicle.dart';
 
 /// Servicio API para comunicarse con el backend FastAPI
 class ApiService {
@@ -47,6 +48,36 @@ class ApiService {
     }
   }
 
+  /// Registro de cliente - POST /api/auth/register/client/
+  Future<Map<String, dynamic>> registerClient({
+    required String nombre,
+    required String username,
+    required String password,
+    String? email,
+    String? telefono,
+  }) async {
+    final response = await http.post(
+      Uri.parse('${AppConstants.baseUrl}${AppConstants.authEndpoint}/register/client/'),
+      headers: _getHeaders(includeAuth: false),
+      body: jsonEncode({
+        'nombre': nombre,
+        'username': username,
+        'password': password,
+        'email': email,
+        'telefono': telefono,
+      }),
+    ).timeout(AppConstants.requestTimeout);
+
+    if (response.statusCode == 201) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    if (response.statusCode == 400) {
+      final detail = jsonDecode(response.body);
+      throw Exception(detail['detail']?.toString() ?? 'No se pudo registrar el cliente');
+    }
+    throw Exception('Error de registro: ${response.statusCode}');
+  }
+
   /// Obtener perfil del usuario autenticado - GET /api/auth/me
   Future<User> getProfile() async {
     try {
@@ -66,6 +97,54 @@ class ApiService {
     } catch (e) {
       rethrow;
     }
+  }
+
+  Future<List<Vehicle>> getMyVehicles() async {
+    final response = await http.get(
+      Uri.parse('${AppConstants.baseUrl}${AppConstants.clientesEndpoint}/me/vehiculos'),
+      headers: _getHeaders(),
+    ).timeout(AppConstants.requestTimeout);
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.map((item) => Vehicle.fromJson(item as Map<String, dynamic>)).toList();
+    }
+
+    if (response.statusCode == 404) {
+      throw Exception('Cliente no encontrado');
+    }
+
+    throw Exception('Error al obtener vehículos: ${response.statusCode}');
+  }
+
+  Future<Vehicle> createMyVehicle({
+    required String marca,
+    required String modelo,
+    required String placa,
+    int? anio,
+    bool principal = false,
+  }) async {
+    final response = await http.post(
+      Uri.parse('${AppConstants.baseUrl}${AppConstants.clientesEndpoint}/me/vehiculos'),
+      headers: _getHeaders(),
+      body: jsonEncode({
+        'marca': marca,
+        'modelo': modelo,
+        'placa': placa,
+        'anio': anio,
+        'principal': principal,
+      }),
+    ).timeout(AppConstants.requestTimeout);
+
+    if (response.statusCode == 201) {
+      return Vehicle.fromJson(jsonDecode(response.body));
+    }
+
+    if (response.statusCode == 404) {
+      throw Exception('Cliente no encontrado');
+    }
+
+    throw Exception('Error al registrar vehículo: ${response.statusCode}');
   }
 
   /// Obtener lista de empleados - GET /api/empleados

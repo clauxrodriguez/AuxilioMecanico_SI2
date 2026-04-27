@@ -67,6 +67,8 @@ class Empresa(Base):
     direccion: Mapped[str | None] = mapped_column(String(255), nullable=True)
     telefono: Mapped[str | None] = mapped_column(String(20), nullable=True)
     email: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    latitud: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
+    longitud: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
     fecha_creacion: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     empleados: Mapped[list[Empleado]] = relationship(back_populates="empresa")
@@ -132,6 +134,10 @@ class Empleado(Base):
 
     foto_perfil: Mapped[str | None] = mapped_column(String(100), nullable=True)
     fcm_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    latitud_actual: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
+    longitud_actual: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
+    ubicacion_actualizada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    disponible: Mapped[bool] = mapped_column(Boolean, default=True)
 
     usuario: Mapped[User] = relationship(back_populates="empleado")
     empresa: Mapped[Empresa] = relationship(back_populates="empleados")
@@ -158,12 +164,18 @@ class Cliente(Base):
     __tablename__ = "cliente"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    usuario_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("auth_user.id", ondelete="SET NULL"), unique=True, nullable=True)
     nombre: Mapped[str] = mapped_column(String(150), nullable=False)
     email: Mapped[str | None] = mapped_column(String(254), nullable=True)
     telefono: Mapped[str | None] = mapped_column(String(20), nullable=True)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
+    usuario: Mapped[User | None] = relationship()
     vehiculos: Mapped[list["Vehiculo"]] = relationship(back_populates="cliente")
+
+    @property
+    def username(self) -> str | None:
+        return self.usuario.username if self.usuario else None
 
 
 class Vehiculo(Base):
@@ -171,10 +183,11 @@ class Vehiculo(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     cliente_id: Mapped[str] = mapped_column(String(36), ForeignKey("cliente.id", ondelete="CASCADE"), nullable=False)
-    ano: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    anio: Mapped[int | None] = mapped_column("ano", Integer, nullable=True)
     placa: Mapped[str | None] = mapped_column(String(20), nullable=True)
     marca: Mapped[str | None] = mapped_column(String(50), nullable=True)
     modelo: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    principal: Mapped[bool] = mapped_column(Boolean, default=False)
 
   
     cliente: Mapped[Cliente] = relationship(back_populates="vehiculos")
@@ -202,14 +215,38 @@ class Incidente(Base):
     prioridad: Mapped[int | None] = mapped_column(Integer, nullable=True)
     latitud: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
     longitud: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
-    # note: the existing DB table `incidente` does not include columns for
-    # `taller_id`, `tiempo_estimado_minutos` or `creado_en` so we omit them
-    # here to remain compatible with the current schema and avoid INSERT errors.
+    # Assignment-related fields were moved to `asignacion_servicio` to
+    # keep `incidente` as a pure client request (solicitud).
+    # Legacy columns (empleado_asignado_id, taller_id, tiempo_estimado_minutos)
+    # are removed from the ORM model and handled by a migration.
+    creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     cliente: Mapped[Cliente | None] = relationship()
     vehiculo: Mapped[Vehiculo | None] = relationship()
+    # assignment relationship is available through AsignacionServicio model
     evidencias: Mapped[list["Evidencia"]] = relationship(back_populates="incidente")
     diagnosticos: Mapped[list["Diagnostico"]] = relationship(back_populates="incidente")
+
+
+class AsignacionServicio(Base):
+    __tablename__ = "asignacion_servicio"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    incidente_id: Mapped[str] = mapped_column(String(36), ForeignKey("incidente.id", ondelete="CASCADE"), nullable=False)
+    empleado_id: Mapped[str] = mapped_column(String(36), ForeignKey("empleado.id", ondelete="RESTRICT"), nullable=False)
+    servicio_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    empresa_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    estado_tarea: Mapped[str] = mapped_column(String(50), nullable=False, default="asignada")
+    tiempo_estimado_llegada_minutos: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    costo_servicio: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    porcentaje_comision: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    monto_comision: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    fecha_asignacion: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    fecha_cierre: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    motivo_cancelacion: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    incidente: Mapped[Incidente] = relationship()
+    empleado: Mapped[Empleado] = relationship()
 
 
 class Evidencia(Base):

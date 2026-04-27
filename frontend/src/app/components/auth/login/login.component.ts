@@ -86,7 +86,7 @@ export class LoginComponent {
     this.auth.login(this.form.getRawValue()).subscribe({
       next: () => {
         this.loading = false;
-        this.router.navigate(['/app/empleados']);
+        this.router.navigate([this.auth.getDefaultAppRoute()]);
       },
       error: (error) => {
         this.loading = false;

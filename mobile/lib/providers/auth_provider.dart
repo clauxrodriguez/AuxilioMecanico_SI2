@@ -28,6 +28,9 @@ class AuthProvider with ChangeNotifier {
   /// Obtiene si el usuario es admin
   bool get isAdmin => _user?.role == AppConstants.roleAdmin;
 
+  /// Obtiene si el usuario autenticado es cliente
+  bool get isClient => _user?.role == 'cliente';
+
   AuthProvider() {
     _initializeAuth();
   }
@@ -99,6 +102,57 @@ class AuthProvider with ChangeNotifier {
       }
 
       // Obtener perfil del usuario
+      final authApiService = ApiService(token: _token);
+      _user = await authApiService.getProfile();
+
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = _getErrorMessage(e.toString());
+      _token = null;
+      _refreshToken = null;
+      _user = null;
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Registrar un cliente y dejarlo autenticado
+  Future<bool> registerClient({
+    required String nombre,
+    required String username,
+    required String password,
+    String? email,
+    String? telefono,
+  }) async {
+    try {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+
+      final apiService = ApiService();
+      final response = await apiService.registerClient(
+        nombre: nombre,
+        username: username,
+        password: password,
+        email: email,
+        telefono: telefono,
+      );
+
+      _token = response['access'];
+      _refreshToken = response.containsKey('refresh') ? response['refresh'] : null;
+
+      if (_token == null || Jwt.isExpired(_token!)) {
+        throw Exception('Token inválido');
+      }
+
+      await _storage.write(key: AppConstants.storageKeyToken, value: _token!);
+      if (_refreshToken != null) {
+        await _storage.write(key: AppConstants.storageKeyRefreshToken, value: _refreshToken!);
+      }
+
       final authApiService = ApiService(token: _token);
       _user = await authApiService.getProfile();
 

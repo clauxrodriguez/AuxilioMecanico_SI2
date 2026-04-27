@@ -27,6 +27,7 @@ def create_vehiculo_for_cliente(db: Session, cliente_id: str, payload: VehiculoC
         placa=payload.placa,
         marca=payload.marca,
         modelo=payload.modelo,
+        principal=bool(payload.principal),
     )
     db.add(obj)
     db.commit()

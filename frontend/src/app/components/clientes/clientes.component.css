@@ -1,3 +1,17 @@
-.card { padding: 1rem; border-radius: 6px; background: var(--surface); }
-.muted { color: var(--muted); }
-.btn-small { padding: 0.3rem 0.5rem; font-size: 0.85rem; }
+.page-block {
+	padding: 1rem;
+}
+
+.head {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.muted {
+	color: var(--muted);
+}
+
+.badge--inactive {
+	background: #64748b;
+}

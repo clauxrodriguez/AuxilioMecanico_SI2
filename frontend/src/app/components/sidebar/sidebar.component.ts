@@ -13,16 +13,23 @@ import { AuthService } from '../../services/auth/auth.service';
       <h2>Gestion Usuario</h2>
       <p class="muted" *ngIf="auth.currentUser as user">
         {{ user.nombre_completo }}<br />
-        <span class="badge">{{ user.empresa_nombre || 'Sin empresa' }}</span>
+        <span class="badge">{{ auth.isClient ? 'Cliente' : (user.empresa_nombre || 'Sin empresa') }}</span>
       </p>
 
       <nav>
-        <a routerLink="/app/empleados" routerLinkActive="active">Empleados</a>
-        <a routerLink="/app/clientes" routerLinkActive="active">Clientes</a>
-        <a routerLink="/app/cargos" routerLinkActive="active">Cargos</a>
-        <a routerLink="/app/servicios" routerLinkActive="active">Servicios</a>
-        <a routerLink="/app/roles" routerLinkActive="active">Roles</a>
-        <a routerLink="/app/permisos" routerLinkActive="active">Permisos</a>
+        <ng-container *ngIf="auth.isClient; else adminMenu">
+          <a routerLink="/app/cliente/perfil" routerLinkActive="active">Mi perfil</a>
+          <a routerLink="/app/incidentes" routerLinkActive="active">Solicitud de Auxilio</a>
+          <a routerLink="/app/incidentes/lista" routerLinkActive="active">Incidentes</a>
+        </ng-container>
+        <ng-template #adminMenu>
+          <a routerLink="/app/empleados" routerLinkActive="active">Empleados</a>
+          <a routerLink="/app/clientes" routerLinkActive="active">Clientes</a>
+          <a routerLink="/app/cargos" routerLinkActive="active">Cargos</a>
+          <a routerLink="/app/servicios" routerLinkActive="active">Servicios</a>
+          <a routerLink="/app/roles" routerLinkActive="active">Roles</a>
+          <a routerLink="/app/permisos" routerLinkActive="active">Permisos</a>
+        </ng-template>
       </nav>
 
       <button class="btn btn-ghost" (click)="logout()">Cerrar sesion</button>

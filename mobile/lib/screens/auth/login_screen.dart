@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/custom_text_field.dart';
+import 'register_client_screen.dart';
 
 /// Pantalla de Login
 class LoginScreen extends StatefulWidget {
@@ -175,6 +176,19 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const RegisterClientScreen()),
+                      );
+                    },
+                    child: const Text(
+                      'Registrarse como cliente',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   // Mensaje de error ampliado
                   Consumer<AuthProvider>(
                     builder: (context, authProvider, _) {
