@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../widgets/app_drawer.dart';
-import '../../data/api_service.dart';
+import '../../data/vehiculo_service.dart';
 import '../../models/vehicle.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
 
 class VehiclesListScreen extends StatefulWidget {
   const VehiclesListScreen({super.key});
@@ -16,8 +18,18 @@ class _VehiclesListScreenState extends State<VehiclesListScreen> {
   @override
   void initState() {
     super.initState();
-    // token will be provided by AuthProvider in real app; keep simple placeholder
-    _future = ApiService().getAllVehicles();
+    // Load using VehiculoService with token from AuthProvider (pulled in build if needed)
+    // Initial value will be set in didChangeDependencies where we can access Provider.
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final auth = Provider.of<AuthProvider>(context);
+    final token = auth.token;
+    setState(() {
+      _future = VehiculoService(token: token).getMisVehiculos();
+    });
   }
 
   @override
@@ -32,7 +44,10 @@ class _VehiclesListScreenState extends State<VehiclesListScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
+            return Padding(
+              padding: const EdgeInsets.all(16),
+              child: Center(child: Text('Error: ${snapshot.error}')),
+            );
           }
           final vehicles = snapshot.data ?? [];
           if (vehicles.isEmpty)
@@ -48,6 +63,62 @@ class _VehiclesListScreenState extends State<VehiclesListScreen> {
                 title: Text('${v.marca ?? 'N/A'} ${v.modelo ?? ''}'.trim()),
                 subtitle: Text(
                   'Placa: ${v.placa ?? 'N/A'} • Año: ${v.anio ?? 'N/A'}',
+                ),
+                trailing: PopupMenuButton<String>(
+                  onSelected: (choice) async {
+                    final auth = Provider.of<AuthProvider>(
+                      context,
+                      listen: false,
+                    );
+                    final svc = VehiculoService(token: auth.token);
+                    if (choice == 'editar') {
+                      // abrir formulario de edición (reusar VehicleRegisterScreen)
+                      final updated = await Navigator.pushNamed(
+                        context,
+                        '/registrar-vehiculo',
+                        arguments: v,
+                      );
+                      if (updated == true)
+                        setState(() => _future = svc.getMisVehiculos());
+                    } else if (choice == 'eliminar') {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Confirmar'),
+                          content: const Text('¿Eliminar este vehículo?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Cancelar'),
+                            ),
+                            ElevatedButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text('Eliminar'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirm == true) {
+                        try {
+                          await svc.eliminarVehiculo(v.id);
+                          if (!mounted) return;
+                          setState(() => _future = svc.getMisVehiculos());
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Vehículo eliminado')),
+                          );
+                        } catch (e) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                        }
+                      }
+                    }
+                  },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: 'editar', child: Text('Editar')),
+                    PopupMenuItem(value: 'eliminar', child: Text('Eliminar')),
+                  ],
                 ),
               );
             },

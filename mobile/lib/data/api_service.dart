@@ -114,18 +114,10 @@ class ApiService {
         )
         .timeout(AppConstants.requestTimeout);
 
-    if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body);
-      return data
-          .map((item) => Vehicle.fromJson(item as Map<String, dynamic>))
-          .toList();
-    }
-
-    if (response.statusCode == 404) {
-      throw Exception('Cliente no encontrado');
-    }
-
-    throw Exception('Error al obtener vehículos: ${response.statusCode}');
+    return _handleListResponse<Vehicle>(
+      response,
+      (item) => Vehicle.fromJson(item as Map<String, dynamic>),
+    );
   }
 
   /// Obtener todos los vehículos - GET /api/vehiculos
@@ -178,12 +170,101 @@ class ApiService {
     if (response.statusCode == 201) {
       return Vehicle.fromJson(jsonDecode(response.body));
     }
+    return _handleResponse<Vehicle>(response, (body) => Vehicle.fromJson(body));
+  }
 
-    if (response.statusCode == 404) {
-      throw Exception('Cliente no encontrado');
+  Future<Vehicle> updateVehicle({
+    required String id,
+    required Map<String, dynamic> body,
+  }) async {
+    final response = await http
+        .put(
+          Uri.parse(
+            '${AppConstants.baseUrl}${AppConstants.vehiculosEndpoint}/$id/',
+          ),
+          headers: _getHeaders(),
+          body: jsonEncode(body),
+        )
+        .timeout(AppConstants.requestTimeout);
+
+    return _handleResponse<Vehicle>(response, (b) => Vehicle.fromJson(b));
+  }
+
+  Future<void> deleteMyVehicle(String id) async {
+    final response = await http
+        .delete(
+          Uri.parse(
+            '${AppConstants.baseUrl}${AppConstants.clientesEndpoint}/me/vehiculos/$id',
+          ),
+          headers: _getHeaders(),
+        )
+        .timeout(AppConstants.requestTimeout);
+
+    if (response.statusCode == 204 || response.statusCode == 200) return;
+    _log('deleteMyVehicle status=${response.statusCode} body=${response.body}');
+    throw Exception('Error al eliminar vehículo: ${response.statusCode}');
+  }
+
+  // Incidentes
+  Future<Map<String, dynamic>> createIncidente(
+    Map<String, dynamic> payload,
+  ) async {
+    final response = await http
+        .post(
+          Uri.parse('${AppConstants.baseUrl}/api/incidentes/'),
+          headers: _getHeaders(),
+          body: jsonEncode(payload),
+        )
+        .timeout(AppConstants.requestTimeout);
+
+    return _handleResponse<Map<String, dynamic>>(
+      response,
+      (b) => b as Map<String, dynamic>,
+    );
+  }
+
+  // Helpers
+  void _log(String msg) {
+    // simple debug print
+    // ignore: avoid_print
+    print('[ApiService] $msg');
+  }
+
+  T _parseBody<T>(String body) {
+    if (body.isEmpty) return {} as T;
+    return jsonDecode(body) as T;
+  }
+
+  dynamic _handleResponse<T>(
+    http.Response response,
+    T Function(dynamic body) mapper,
+  ) {
+    _log('response ${response.statusCode} ${response.body}');
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final parsed = _parseBody(response.body);
+      return mapper(parsed);
     }
+    if (response.statusCode == 401) throw Exception('No autorizado (401)');
+    if (response.statusCode == 422)
+      throw Exception('Datos inválidos (422): ${response.body}');
+    if (response.statusCode >= 500)
+      throw Exception('Error servidor (${response.statusCode})');
+    throw Exception('Error en la petición: ${response.statusCode}');
+  }
 
-    throw Exception('Error al registrar vehículo: ${response.statusCode}');
+  List<T> _handleListResponse<T>(
+    http.Response response,
+    T Function(dynamic item) mapper,
+  ) {
+    _log('list response ${response.statusCode} ${response.body}');
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
+      return data.map((e) => mapper(e)).toList();
+    }
+    if (response.statusCode == 401) throw Exception('No autorizado (401)');
+    if (response.statusCode >= 500)
+      throw Exception('Error servidor (${response.statusCode})');
+    throw Exception('Error al obtener lista: ${response.statusCode}');
   }
 
   /// Obtener lista de empleados - GET /api/empleados

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../data/api_service.dart';
+import '../../data/vehiculo_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/custom_text_field.dart';
 
@@ -37,16 +37,21 @@ class _VehicleRegisterScreenState extends State<VehicleRegisterScreen> {
 
     try {
       final auth = context.read<AuthProvider>();
-      final api = ApiService(token: auth.token);
-      await api.createMyVehicle(
-        marca: _brandController.text.trim(),
-        modelo: _modelController.text.trim(),
-        placa: _plateController.text.trim(),
-        anio: _yearController.text.trim().isEmpty ? null : int.tryParse(_yearController.text.trim()),
-        principal: _principal,
-      );
+      final svc = VehiculoService(token: auth.token);
+      await svc.registrarVehiculo({
+        'marca': _brandController.text.trim(),
+        'modelo': _modelController.text.trim(),
+        'placa': _plateController.text.trim(),
+        'anio': _yearController.text.trim().isEmpty
+            ? null
+            : int.tryParse(_yearController.text.trim()),
+        'principal': _principal,
+      });
 
       if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Vehículo registrado')));
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
@@ -76,7 +81,9 @@ class _VehicleRegisterScreenState extends State<VehicleRegisterScreen> {
                 label: 'Marca',
                 hint: 'Ej. Toyota',
                 prefixIcon: Icons.directions_car,
-                validator: (value) => (value == null || value.trim().isEmpty) ? 'La marca es requerida' : null,
+                validator: (value) => (value == null || value.trim().isEmpty)
+                    ? 'La marca es requerida'
+                    : null,
               ),
               const SizedBox(height: 16),
               CustomTextField(
@@ -84,7 +91,9 @@ class _VehicleRegisterScreenState extends State<VehicleRegisterScreen> {
                 label: 'Modelo',
                 hint: 'Ej. Hilux',
                 prefixIcon: Icons.car_rental,
-                validator: (value) => (value == null || value.trim().isEmpty) ? 'El modelo es requerido' : null,
+                validator: (value) => (value == null || value.trim().isEmpty)
+                    ? 'El modelo es requerido'
+                    : null,
               ),
               const SizedBox(height: 16),
               CustomTextField(
@@ -92,7 +101,9 @@ class _VehicleRegisterScreenState extends State<VehicleRegisterScreen> {
                 label: 'Placa',
                 hint: 'Ej. 1234ABC',
                 prefixIcon: Icons.confirmation_number,
-                validator: (value) => (value == null || value.trim().isEmpty) ? 'La placa es requerida' : null,
+                validator: (value) => (value == null || value.trim().isEmpty)
+                    ? 'La placa es requerida'
+                    : null,
               ),
               const SizedBox(height: 16),
               CustomTextField(
@@ -125,7 +136,12 @@ class _VehicleRegisterScreenState extends State<VehicleRegisterScreen> {
                       ? const SizedBox(
                           width: 22,
                           height: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
                         )
                       : const Text('Guardar vehículo'),
                 ),
