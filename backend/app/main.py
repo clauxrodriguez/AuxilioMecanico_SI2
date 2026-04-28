@@ -2,11 +2,19 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
 from app.core.config import get_settings
-from app.routers import auth, empleados, permisos, roles, clientes, vehiculos, incidentes
-from app.routers import auth, cargos, empleados, permisos, roles, servicios
+from app.routers import (
+    auth,
+    cargos,
+    empleados,
+    permisos,
+    roles,
+    clientes,
+    vehiculos,
+    incidentes,
+    servicios,
+)
 
 
 settings = get_settings()
@@ -25,24 +33,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Expose auth endpoints at both root (e.g. /token/) and under /api/auth (e.g. /api/auth/token/)
 app.include_router(auth.router)
 app.include_router(auth.router, prefix="/api/auth")
-app.include_router(cargos.router)
-app.include_router(cargos.router, prefix="/api")
-app.include_router(permisos.router)
-app.include_router(permisos.router, prefix="/api")
-app.include_router(roles.router)
-app.include_router(roles.router, prefix="/api")
-app.include_router(empleados.router)
+
+# Resource routers exposed under /api
+# Note: `clientes` router already defines prefix "/api/clientes" so include it directly
 app.include_router(clientes.router)
-app.include_router(vehiculos.router)
-app.include_router(incidentes.router)
+app.include_router(cargos.router, prefix="/api")
+app.include_router(permisos.router, prefix="/api")
+app.include_router(roles.router, prefix="/api")
 app.include_router(empleados.router, prefix="/api")
-app.include_router(servicios.router)
 app.include_router(servicios.router, prefix="/api")
-media_root = Path(settings.media_root)
-media_root.mkdir(parents=True, exist_ok=True)
-app.mount(settings.media_url, StaticFiles(directory=media_root), name="media")
+app.include_router(vehiculos.router, prefix="/api")
+app.include_router(incidentes.router, prefix="/api")
 
 
 @app.get("/health")

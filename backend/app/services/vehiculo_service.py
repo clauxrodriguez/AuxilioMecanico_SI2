@@ -23,7 +23,7 @@ def create_vehiculo_for_cliente(db: Session, cliente_id: str, payload: VehiculoC
     obj = Vehiculo(
         id=next_id,
         cliente_id=cliente_id,
-        ano=payload.anio,
+        anio=payload.anio,
         placa=payload.placa,
         marca=payload.marca,
         modelo=payload.modelo,
@@ -33,6 +33,13 @@ def create_vehiculo_for_cliente(db: Session, cliente_id: str, payload: VehiculoC
     db.commit()
     db.refresh(obj)
     return obj
+
+
+def list_vehiculos(db: Session) -> list[Vehiculo]:
+    """Listar todos los vehículos (para uso administrativo/operativo)."""
+    stmt = select(Vehiculo)
+    rows = db.execute(stmt).scalars().all()
+    return rows
 
 
 def list_vehiculos_for_cliente(db: Session, cliente_id: str) -> list[Vehiculo]:
@@ -51,7 +58,7 @@ def get_vehiculo_or_404(db: Session, vehiculo_id: str) -> Vehiculo:
 
 def update_vehiculo(db: Session, vehiculo: Vehiculo, payload: VehiculoUpdate) -> Vehiculo:
     if payload.anio is not None:
-        vehiculo.ano = payload.anio
+        vehiculo.anio = payload.anio
     if payload.placa is not None:
         vehiculo.placa = payload.placa
     if payload.marca is not None:

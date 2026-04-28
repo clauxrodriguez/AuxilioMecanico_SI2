@@ -72,7 +72,8 @@ export interface EvidenciaUploadResponse {
 
 @Injectable({ providedIn: 'root' })
 export class IncidenteApiService {
-  private base = environment.apiBaseUrl;
+  // include /api prefix so endpoints match backend (e.g. /api/incidentes)
+  private base = `${environment.apiBaseUrl}/api`;
 
   constructor(private http: HttpClient) {}
 

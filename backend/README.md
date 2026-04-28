@@ -140,31 +140,82 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
 ## Endpoints principales
 
 - Auth:
-  - `POST /token/`
-  - `POST /token/refresh/`
-  - `POST /register/company/`
-  - `POST /register/admin/`
-  - `POST /employee-invitations/activate/`
-  - `POST /register/`
-  - `GET /my-permissions/`
+  - `POST /api/auth/token/` - obtener tokens (login)
+  - `POST /api/auth/token/refresh/` - refrescar token de acceso
+  - `POST /api/auth/register/company/` - registrar empresa (paso 1)
+  - `POST /api/auth/register/admin/` - completar registro admin (paso final)
+  - `POST /api/auth/employee-invitations/activate/` - activar invitación de empleado
+  - `POST /api/auth/register/` - registro combinado (empresa + admin)
+
+  - `GET /api/auth/my-permissions/` - permisos del usuario autenticado
 - Empleados:
-  - `GET /empleados/`
-  - `GET /empleados/{empleado_id}/`
-  - `POST /empleados/`
-  - `PUT/PATCH /empleados/{empleado_id}/`
-  - `DELETE /empleados/{empleado_id}/`
+  - `GET /api/empleados/`
+  - `GET /api/empleados/{empleado_id}/`
+  - `POST /api/empleados/`
+  - `PUT/PATCH /api/empleados/{empleado_id}/`
+  - `DELETE /api/empleados/{empleado_id}/`
 - Roles:
-  - `GET /roles/`
-  - `GET /roles/{role_id}/`
-  - `POST /roles/`
-  - `PUT/PATCH /roles/{role_id}/`
-  - `DELETE /roles/{role_id}/`
+  - `GET /api/roles/`
+  - `GET /api/roles/{role_id}/`
+  - `POST /api/roles/`
+  - `PUT/PATCH /api/roles/{role_id}/`
+  - `DELETE /api/roles/{role_id}/`
 - Permisos:
-  - `GET /permisos/`
-  - `GET /permisos/{permiso_id}/`
-  - `POST /permisos/`
-  - `PUT/PATCH /permisos/{permiso_id}/`
-  - `DELETE /permisos/{permiso_id}/`
+  - `GET /api/permisos/`
+  - `GET /api/permisos/{permiso_id}/`
+  - `POST /api/permisos/`
+  - `PUT/PATCH /api/permisos/{permiso_id}/`
+  - `DELETE /api/permisos/{permiso_id}/`
+
+- Cargos:
+  - `GET /api/cargos/`
+  - `GET /api/cargos/{cargo_id}/`
+  - `POST /api/cargos/`
+  - `PUT/PATCH /api/cargos/{cargo_id}/`
+  - `DELETE /api/cargos/{cargo_id}/`
+
+- Servicios:
+  - `GET /api/servicios/`
+  - `GET /api/servicios/{servicio_id}/`
+  - `POST /api/servicios/`
+  - `PUT/PATCH /api/servicios/{servicio_id}/`
+  - `DELETE /api/servicios/{servicio_id}/`
+
+- Clientes (móvil y panel):
+  - POST /api/auth/register/client/ - registro de cliente
+  - `GET /api/clientes/` - listar clientes (permiso)
+  - `GET /api/clientes/me/` - obtener cliente asociado al usuario autenticado
+  - `PUT /api/clientes/me/` - actualizar datos del cliente autenticado
+  - `GET /api/clientes/me/vehiculos` - listar vehículos del cliente autenticado
+  - `POST /api/clientes/me/vehiculos` - registrar nuevo vehículo para el cliente autenticado
+  - `GET /api/clientes/me/vehiculos/{vehiculo_id}` - detalle de vehículo del cliente
+  - `DELETE /api/clientes/me/vehiculos/{vehiculo_id}` - borrar vehículo del cliente
+  - `GET /api/clientes/me/vehiculos/count` - contar vehículos del cliente
+  - `GET /api/clientes/{cliente_id}/` - obtener cliente por id
+  - `PUT /api/clientes/{cliente_id}/` - actualizar cliente (admin)
+  - `GET /api/clientes/{cliente_id}/historial` - historial relacionado al cliente
+  - `POST /api/clientes/verificar-sms` - flujo de verificación SMS (enviar/validar código)
+
+- Vehículos (operativo/backoffice):
+  - `PUT /api/vehiculos/{vehiculo_id}/` - actualizar vehículo
+  - `DELETE /api/vehiculos/{vehiculo_id}/` - eliminar vehículo
+  - `PATCH /api/vehiculos/{vehiculo_id}/principal` - marcar vehículo principal
+  - `GET /api/vehiculos/atendidos` - listar vehículos con incidentes (personal)
+
+- Incidentes:
+  - `GET /api/incidentes/` - listar incidentes
+  - `POST /api/incidentes/` - crear incidente (cliente autenticado)
+  - `GET /api/incidentes/{incidente_id}/` - detalle
+  - `PATCH /api/incidentes/{incidente_id}/` - actualizar incidente (operativo)
+  - `POST /api/incidentes/{incidente_id}/asignacion` - asignar técnico
+  - `PATCH /api/incidentes/tecnicos/mi-ubicacion` - actualizar ubicación técnico
+  - `PATCH /api/incidentes/{incidente_id}/tecnico/ubicacion` - actualizar ubicación técnico para incidente
+  - `GET /api/incidentes/{incidente_id}/tracking` - tracking del incidente
+  - `PATCH /api/incidentes/{incidente_id}/estado` - actualizar solo estado (móvil)
+  - `POST /api/incidentes/{incidente_id}/diagnosticos` - agregar diagnóstico
+  - `GET /api/incidentes/{incidente_id}/diagnosticos` - listar diagnósticos
+  - `POST /api/incidentes/{incidente_id}/evidencias` - agregar evidencia (url/texto)
+  - `POST /api/incidentes/{incidente_id}/evidencias/upload` - subir archivo (multipart)
 
 ## Verificacion rapida
 

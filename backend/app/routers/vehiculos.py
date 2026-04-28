@@ -13,6 +13,7 @@ from app.services.vehiculo_service import (
     update_vehiculo,
     delete_vehiculo,
     set_principal,
+    list_vehiculos,
 )
  
 
@@ -53,3 +54,9 @@ def vehiculos_atendidos(user=Depends(require_permission("manage_incidentes")), d
     stmt = select(Vehiculo).join(Incidente, Incidente.vehiculo_id == Vehiculo.id).distinct()
     rows = db.execute(stmt).scalars().all()
     return rows
+
+
+@router.get("/", response_model=list[VehiculoOut])
+def vehiculos_list(user=Depends(require_permission("manage_incidentes")), db: Session = Depends(get_db)) -> list[VehiculoOut]:
+    """Listar todos los vehículos (requiere permiso)."""
+    return list_vehiculos(db)

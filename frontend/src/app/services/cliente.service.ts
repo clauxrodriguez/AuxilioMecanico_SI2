@@ -52,7 +52,8 @@ export interface TokenResponseWithCreds extends TokenResponse {
 
 @Injectable({ providedIn: 'root' })
 export class ClienteApiService {
-  private base = environment.apiBaseUrl;
+  // Use API prefix so endpoints become e.g. http://localhost:8001/api/clientes
+  private base = `${environment.apiBaseUrl}/api`;
 
   constructor(private http: HttpClient) {}
 

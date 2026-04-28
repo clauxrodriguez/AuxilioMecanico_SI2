@@ -25,8 +25,8 @@ class VehiculoUpdate(BaseModel):
 class VehiculoOut(ORMModel):
     id: str
     cliente_id: str
-    anio: int | None
-    placa: str | None
-    marca: str | None
-    modelo: str | None
+    anio: int | None = None
+    placa: str | None = None
+    marca: str | None = None
+    modelo: str | None = None
 

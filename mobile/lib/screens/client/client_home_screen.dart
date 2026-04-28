@@ -5,7 +5,6 @@ import '../../data/api_service.dart';
 import '../../models/vehicle.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/custom_app_bar.dart';
-import 'vehicle_register_screen.dart';
 
 class ClientHomeScreen extends StatefulWidget {
   const ClientHomeScreen({super.key});
@@ -38,11 +37,11 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
   }
 
   Future<void> _openVehicleForm() async {
-    final saved = await Navigator.push<bool>(
+    // keep for backward compatibility if used elsewhere
+    final saved = await Navigator.pushNamed<bool>(
       context,
-      MaterialPageRoute(builder: (_) => const VehicleRegisterScreen()),
+      '/registrar-vehiculo',
     );
-
     if (saved == true && mounted) {
       setState(_loadVehicles);
     }
@@ -55,11 +54,15 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
         title: const Text('Cerrar sesión'),
         content: const Text('¿Deseas salir de la app?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              context.read<AuthProvider>().logout();
+              await context.read<AuthProvider>().logout();
+              Navigator.pushReplacementNamed(context, '/login');
             },
             child: const Text('Salir'),
           ),
@@ -79,10 +82,109 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
         user: user,
         onLogout: _logout,
       ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            const DrawerHeader(
+              decoration: BoxDecoration(color: Color(0xFF2196F3)),
+              child: Align(
+                alignment: Alignment.bottomLeft,
+                child: Text(
+                  'Menú del cliente',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.person),
+              title: const Text('Mi perfil'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/perfil');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.directions_car),
+              title: const Text('Mis vehículos'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/vehiculos');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.add_circle_outline),
+              title: const Text('Registrar vehículo'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/registrar-vehiculo');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.report_problem),
+              title: const Text('Registrar incidente'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/registrar-incidente');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.history),
+              title: const Text('Historial de incidentes'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/historial-incidentes');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.location_on),
+              title: const Text('Seguimiento del servicio'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/tracking');
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.logout),
+              title: const Text('Cerrar sesión'),
+              onTap: () async {
+                Navigator.pop(context);
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Cerrar sesión'),
+                    content: const Text('¿Deseas salir de la app?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Cancelar'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text('Salir'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirmed == true) {
+                  await context.read<AuthProvider>().logout();
+                  Navigator.pushReplacementNamed(context, '/login');
+                }
+              },
+            ),
+          ],
+        ),
+      ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openVehicleForm,
-        icon: const Icon(Icons.add),
-        label: const Text('Registrar vehículo'),
+        onPressed: () => Navigator.pushNamed(context, '/registrar-incidente'),
+        backgroundColor: Colors.red,
+        icon: const Icon(Icons.warning),
+        label: const Text('Reportar Incidente'),
       ),
       body: RefreshIndicator(
         onRefresh: _refreshVehicles,
@@ -94,12 +196,16 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
             children: [
               Text(
                 'Bienvenido, ${user?.fullName ?? 'Cliente'}',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
                 'Aquí puedes registrar y ver tus vehículos',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
               ),
               const SizedBox(height: 24),
               Card(
@@ -108,11 +214,28 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Datos de acceso', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      Text(
+                        'Datos de acceso',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
                       const SizedBox(height: 12),
-                      _InfoRow(label: 'Usuario', value: user?.username ?? 'N/A'),
-                      _InfoRow(label: 'Correo', value: user?.email.isNotEmpty == true ? user!.email : 'N/A'),
-                      _InfoRow(label: 'Estado', value: (user?.isActive ?? false) ? 'Activo' : 'Inactivo'),
+                      _InfoRow(
+                        label: 'Usuario',
+                        value: user?.username ?? 'N/A',
+                      ),
+                      _InfoRow(
+                        label: 'Correo',
+                        value: user?.email.isNotEmpty == true
+                            ? user!.email
+                            : 'N/A',
+                      ),
+                      _InfoRow(
+                        label: 'Estado',
+                        value: (user?.isActive ?? false)
+                            ? 'Activo'
+                            : 'Inactivo',
+                      ),
                     ],
                   ),
                 ),
@@ -120,7 +243,9 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
               const SizedBox(height: 24),
               Text(
                 'Mis vehículos',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
               FutureBuilder<List<Vehicle>>(
@@ -158,11 +283,22 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                       return Card(
                         child: ListTile(
                           leading: CircleAvatar(
-                            child: Icon(vehicle.principal ? Icons.star : Icons.directions_car),
+                            child: Icon(
+                              vehicle.principal
+                                  ? Icons.star
+                                  : Icons.directions_car,
+                            ),
                           ),
-                          title: Text('${vehicle.marca ?? 'N/A'} ${vehicle.modelo ?? ''}'.trim()),
-                          subtitle: Text('Placa: ${vehicle.placa ?? 'N/A'}\nAño: ${vehicle.anio?.toString() ?? 'N/A'}'),
-                          trailing: vehicle.principal ? const Chip(label: Text('Principal')) : null,
+                          title: Text(
+                            '${vehicle.marca ?? 'N/A'} ${vehicle.modelo ?? ''}'
+                                .trim(),
+                          ),
+                          subtitle: Text(
+                            'Placa: ${vehicle.placa ?? 'N/A'}\nAño: ${vehicle.anio?.toString() ?? 'N/A'}',
+                          ),
+                          trailing: vehicle.principal
+                              ? const Chip(label: Text('Principal'))
+                              : null,
                         ),
                       );
                     },
@@ -193,7 +329,10 @@ class _InfoRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 90,
-            child: Text('$label:', style: const TextStyle(fontWeight: FontWeight.w600)),
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
           ),
           Expanded(child: Text(value)),
         ],

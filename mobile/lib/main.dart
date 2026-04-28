@@ -4,6 +4,12 @@ import 'providers/auth_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/admin/admin_home_screen.dart';
 import 'screens/client/client_home_screen.dart';
+import 'screens/client/profile_screen.dart';
+import 'screens/client/vehicles_list_screen.dart';
+import 'screens/client/vehicle_register_screen.dart';
+import 'screens/client/incident_report_screen.dart';
+import 'screens/client/incident_history_screen.dart';
+import 'screens/client/tracking_screen.dart';
 import 'screens/employee/employee_home_screen.dart';
 import 'core/theme.dart';
 
@@ -24,6 +30,15 @@ class MyApp extends StatelessWidget {
         theme: AppTheme.lightTheme,
         debugShowCheckedModeBanner: false,
         home: const AuthCheck(),
+        routes: {
+          '/login': (context) => const LoginScreen(),
+          '/perfil': (context) => const ProfileScreen(),
+          '/vehiculos': (context) => const VehiclesListScreen(),
+          '/registrar-vehiculo': (context) => const VehicleRegisterScreen(),
+          '/registrar-incidente': (context) => const IncidentReportScreen(),
+          '/historial-incidentes': (context) => const IncidentHistoryScreen(),
+          '/tracking': (context) => const TrackingScreen(),
+        },
       ),
     );
   }
@@ -38,9 +53,7 @@ class AuthCheck extends StatelessWidget {
     final authProvider = Provider.of<AuthProvider>(context);
 
     if (authProvider.isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (!authProvider.isAuthenticated) {
