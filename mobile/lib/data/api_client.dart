@@ -17,5 +17,5 @@ class ApiClient {
   AuthService auth() => AuthService(ApiService(token: _token));
   EmpleadoService empleado() => EmpleadoService(ApiService(token: _token));
   ClienteService cliente() => ClienteService(ApiService(token: _token));
-  IncidenteService incidente() => IncidenteService(ApiService(token: _token));
+  IncidenteService incidente() => IncidenteService(token: _token);
 }

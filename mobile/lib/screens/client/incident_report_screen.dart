@@ -5,6 +5,8 @@ import '../../providers/auth_provider.dart';
 import '../../data/vehiculo_service.dart';
 import '../../data/incidente_service.dart';
 import '../../models/vehicle.dart';
+import 'package:flutter/widgets.dart';
+import 'package:geolocator/geolocator.dart';
 
 class IncidentReportScreen extends StatelessWidget {
   const IncidentReportScreen({super.key});
@@ -26,9 +28,11 @@ class _IncidentReportFormState extends State<_IncidentReportForm> {
   List<Vehicle> _vehicles = [];
   Vehicle? _selected;
   final _descCtrl = TextEditingController();
-  final _latCtrl = TextEditingController();
-  final _lngCtrl = TextEditingController();
+
   bool _loading = true;
+  double? _latitud;
+  double? _longitud;
+  int _prioridad = 1;
 
   @override
   void initState() {
@@ -63,12 +67,20 @@ class _IncidentReportFormState extends State<_IncidentReportForm> {
       ).showSnackBar(const SnackBar(content: Text('Selecciona un vehículo')));
       return;
     }
+    // Validar que se haya seleccionado ubicación
+    if (_latitud == null || _longitud == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecciona una ubicación en el mapa')),
+      );
+      return;
+    }
     final payload = {
       'vehiculo_id': _selected!.id,
       'tipo': 'emergencia',
       'descripcion': _descCtrl.text.trim(),
-      'latitud': _latCtrl.text.isEmpty ? null : double.tryParse(_latCtrl.text),
-      'longitud': _lngCtrl.text.isEmpty ? null : double.tryParse(_lngCtrl.text),
+      'prioridad': _prioridad,
+      'latitud': _latitud,
+      'longitud': _longitud,
     };
     final token = Provider.of<AuthProvider>(context, listen: false).token;
     try {
@@ -112,23 +124,83 @@ class _IncidentReportFormState extends State<_IncidentReportForm> {
                     decoration: const InputDecoration(labelText: 'Vehículo'),
                   ),
                   const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: () async {
+                      final result = await Navigator.pushNamed(
+                        context,
+                        '/seleccionar-ubicacion',
+                      );
+                      if (result is Map) {
+                        setState(() {
+                          _latitud = (result['latitud'] as num?)?.toDouble();
+                          _longitud = (result['longitud'] as num?)?.toDouble();
+                        });
+                      }
+                    },
+                    child: const Text('Seleccionar ubicación en mapa'),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      // Solicitar permisos y obtener ubicación actual
+                      bool serviceEnabled =
+                          await Geolocator.isLocationServiceEnabled();
+                      if (!mounted) return;
+                      if (!serviceEnabled) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Activa el servicio de ubicación'),
+                          ),
+                        );
+                        return;
+                      }
+                      LocationPermission permission =
+                          await Geolocator.checkPermission();
+                      if (!mounted) return;
+                      if (permission == LocationPermission.denied) {
+                        permission = await Geolocator.requestPermission();
+                        if (!mounted) return;
+                      }
+                      if (permission == LocationPermission.denied ||
+                          permission == LocationPermission.deniedForever) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Permiso de ubicación denegado'),
+                          ),
+                        );
+                        return;
+                      }
+                      try {
+                        final pos = await Geolocator.getCurrentPosition();
+                        if (!mounted) return;
+                        setState(() {
+                          _latitud = pos.latitude;
+                          _longitud = pos.longitude;
+                        });
+                      } catch (e) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Error obteniendo ubicación: $e'),
+                          ),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.my_location),
+                    label: const Text('Usar mi ubicación actual'),
+                  ),
+                  const SizedBox(height: 8),
+                  if (_latitud != null && _longitud != null)
+                    Text(
+                      'Ubicación seleccionada: ${_latitud!.toStringAsFixed(6)}, ${_longitud!.toStringAsFixed(6)}',
+                    ),
+                  const SizedBox(height: 8),
                   TextFormField(
                     controller: _descCtrl,
                     maxLines: 4,
                     decoration: const InputDecoration(labelText: 'Descripción'),
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _latCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Latitud'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _lngCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Longitud'),
-                  ),
                   const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: _submit,
