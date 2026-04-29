@@ -64,36 +64,40 @@ export class MainLayoutComponent implements OnInit {
   /**
    * Inicializar listeners de notificaciones de Firebase
    */
-  private initializeNotifications(): void {
-    // Registrar el Service Worker
-    this.pushNotificationService.registerServiceWorker();
+  private async initializeNotifications(): Promise<void> {
+    try {
+      // Registrar el Service Worker
+      await this.pushNotificationService.registerServiceWorker();
 
-    // Registrar listener para mensajes en foreground
-    this.pushNotificationService.registerForegroundMessageListener(
-      (payload) => {
-        console.log('[MainLayoutComponent] Message received:', payload);
+      // Registrar listener para mensajes en foreground (espera a que Firebase esté inicializado)
+      await this.pushNotificationService.registerForegroundMessageListener(
+        (payload) => {
+          console.log('[MainLayoutComponent] Message received:', payload);
 
-        // Mostrar toast con la notificación
-        const title = payload.notification?.title || 'Nueva notificación';
-        const body = payload.notification?.body || 'Tienes una nueva notificación';
+          // Mostrar toast con la notificación
+          const title = payload.notification?.title || 'Nueva notificación';
+          const body = payload.notification?.body || 'Tienes una nueva notificación';
 
-        const incidentId = payload.data?.['incidente_id'];
-        if (incidentId) {
-          this.toastService.incidentNotification(incidentId, {
-            label: 'Ver solicitud',
-            callback: () => {
-              this.router.navigate(['/app/incidentes', incidentId]);
-            },
-          });
-        } else {
-          this.toastService.info(title, body);
+          const incidentId = payload.data?.['incidente_id'];
+          if (incidentId) {
+            this.toastService.incidentNotification(incidentId, {
+              label: 'Ver solicitud',
+              callback: () => {
+                this.router.navigate(['/app/incidentes', incidentId]);
+              },
+            });
+          } else {
+            this.toastService.info(title, body);
+          }
+        },
+        (incidentId) => {
+          console.log('[MainLayoutComponent] Incident notification:', incidentId);
+          // Navegar al incidente
+          this.router.navigate(['/app/incidentes', incidentId]);
         }
-      },
-      (incidentId) => {
-        console.log('[MainLayoutComponent] Incident notification:', incidentId);
-        // Navegar al incidente
-        this.router.navigate(['/app/incidentes', incidentId]);
-      }
-    );
+      );
+    } catch (error) {
+      console.error('[MainLayoutComponent] Error initializing notifications:', error);
+    }
   }
 }

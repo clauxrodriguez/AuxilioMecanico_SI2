@@ -21,28 +21,35 @@ export class PushNotificationService {
   private messaging: Messaging | null = null;
   private fcmToken: string | null = null;
   private tokenSent = false;
+  private initializationPromise: Promise<void>;
 
   constructor(private readonly http: HttpClient) {
-    this.initialize();
+    this.initializationPromise = this.initialize();
+  }
+
+  /**
+   * Esperar a que Firebase se inicialice
+   */
+  async waitForInitialization(): Promise<void> {
+    await this.initializationPromise;
   }
 
   /**
    * Inicializar Firebase y Messaging
    */
-  private initialize(): void {
-    isSupported().then((supported) => {
-      if (supported) {
-        try {
-          const app = initializeApp(environment.firebase);
-          this.messaging = getMessaging(app);
-          console.log('[PushNotificationService] Firebase initialized successfully');
-        } catch (error) {
-          console.error('[PushNotificationService] Error initializing Firebase:', error);
-        }
-      } else {
-        console.warn('[PushNotificationService] Firebase Messaging is not supported in this browser');
+  private async initialize(): Promise<void> {
+    const supported = await isSupported();
+    if (supported) {
+      try {
+        const app = initializeApp(environment.firebase);
+        this.messaging = getMessaging(app);
+        console.log('[PushNotificationService] Firebase initialized successfully');
+      } catch (error) {
+        console.error('[PushNotificationService] Error initializing Firebase:', error);
       }
-    });
+    } else {
+      console.warn('[PushNotificationService] Firebase Messaging is not supported in this browser');
+    }
   }
 
   /**
@@ -122,10 +129,12 @@ export class PushNotificationService {
   /**
    * Registrar listener para mensajes en foreground
    */
-  registerForegroundMessageListener(
+  async registerForegroundMessageListener(
     onMessageCallback: (data: any) => void,
     onIncidentCallback?: (incidentId: string) => void
-  ): void {
+  ): Promise<void> {
+    await this.waitForInitialization();
+    
     if (!this.messaging) {
       console.warn('[PushNotificationService] Messaging not initialized');
       return;
