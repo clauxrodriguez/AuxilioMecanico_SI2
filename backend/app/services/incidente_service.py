@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.db.models import Cliente, Diagnostico, Empleado, Evidencia, Incidente, Vehiculo
 from app.schemas.incidente import IncidenteCreate, IncidenteUpdate, TecnicoCercanoOut, TecnicoUbicacionUpdate
 from app.services.asignacion_service import create_asignacion, get_active_asignacion_for_incidente
+from app.services.id_utils import get_next_numeric_id
 
 
 def _distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -32,6 +33,7 @@ def list_incidentes(db: Session) -> list[Incidente]:
 def create_incidente(db: Session, payload: IncidenteCreate, cliente_id: str | None = None) -> Incidente:
     # Create incidente with provided cliente_id (DB uses integer PK for id)
     obj = Incidente(
+        id=get_next_numeric_id(db, Incidente),
         cliente_id=cliente_id,
         vehiculo_id=payload.vehiculo_id,
         tipo=payload.tipo,

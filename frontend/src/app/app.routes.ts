@@ -15,6 +15,10 @@ import { ClienteDetailComponent } from './components/clientes/cliente-detail.com
 import { VehiculosComponent } from './components/vehiculos/vehiculos.component';
 import { IncidentesComponent } from './components/incidentes/incidentes.component';
 import { ServicioComponent } from './components/servicio/servicio.component';
+import { UbicacionTallerComponent } from './components/taller/ubicacion-taller.component';
+import { PagosComponent } from './components/taller/pagos.component';
+import { ReportesComponent } from './components/taller/reportes.component';
+import { ConfiguracionComponent } from './components/taller/configuracion.component';
 
 export const appRoutes: Routes = [
   { path: '', component: HomeComponent },
@@ -48,6 +52,10 @@ export const appRoutes: Routes = [
       { path: 'vehiculos', component: VehiculosComponent },
       { path: 'incidentes', component: IncidentesComponent },
       { path: 'incidentes/lista', component: IncidentesComponent },
+      { path: 'taller/ubicacion', component: UbicacionTallerComponent },
+      { path: 'taller/pagos', component: PagosComponent },
+      { path: 'taller/reportes', component: ReportesComponent },
+      { path: 'taller/configuracion', component: ConfiguracionComponent },
     ],
   },
   { path: '**', redirectTo: '' },

@@ -7,6 +7,7 @@ import '../../data/incidente_service.dart';
 import '../../models/vehicle.dart';
 import 'package:flutter/widgets.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:file_picker/file_picker.dart';
 
 class IncidentReportScreen extends StatelessWidget {
   const IncidentReportScreen({super.key});
@@ -28,6 +29,8 @@ class _IncidentReportFormState extends State<_IncidentReportForm> {
   List<Vehicle> _vehicles = [];
   Vehicle? _selected;
   final _descCtrl = TextEditingController();
+  PlatformFile? _pickedFile;
+  final _evidenceTextCtrl = TextEditingController();
 
   bool _loading = true;
   double? _latitud;
@@ -84,7 +87,28 @@ class _IncidentReportFormState extends State<_IncidentReportForm> {
     };
     final token = Provider.of<AuthProvider>(context, listen: false).token;
     try {
-      await IncidenteService(token: token).crearIncidente(payload);
+      final svc = IncidenteService(token: token);
+      final res = await svc.crearIncidente(payload);
+      final incidenteId = res['id']?.toString();
+
+      // If there is a selected file or evidence text, upload it
+      if (incidenteId != null) {
+        if (_pickedFile != null) {
+          await svc.subirEvidenciaArchivo(
+            incidenteId,
+            _pickedFile!,
+            tipo: 'foto',
+            texto: _evidenceTextCtrl.text.trim(),
+          );
+        } else if (_evidenceTextCtrl.text.trim().isNotEmpty) {
+          await svc.agregarEvidenciaTexto(
+            incidenteId,
+            tipo: 'texto',
+            texto: _evidenceTextCtrl.text.trim(),
+          );
+        }
+      }
+
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
@@ -95,6 +119,13 @@ class _IncidentReportFormState extends State<_IncidentReportForm> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error creando incidente: $e')));
+    }
+  }
+
+  Future<void> _pickFile() async {
+    final res = await FilePicker.pickFiles(allowMultiple: false);
+    if (res != null && res.files.isNotEmpty) {
+      setState(() => _pickedFile = res.files.first);
     }
   }
 
@@ -199,6 +230,24 @@ class _IncidentReportFormState extends State<_IncidentReportForm> {
                     controller: _descCtrl,
                     maxLines: 4,
                     decoration: const InputDecoration(labelText: 'Descripción'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _evidenceTextCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Texto de evidencia (opcional)',
+                    ),
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    onPressed: _pickFile,
+                    icon: const Icon(Icons.attach_file),
+                    label: Text(
+                      _pickedFile == null
+                          ? 'Adjuntar archivo (foto/audio)'
+                          : _pickedFile!.name,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   const SizedBox(height: 20),

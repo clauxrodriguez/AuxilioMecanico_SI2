@@ -15,6 +15,7 @@ from app.core.security import create_token, decode_token
 from app.core.security import hash_password
 from app.db.models import Cargo, Empleado, Empresa, Permiso, Rol, Servicio, Suscripcion, User
 from app.schemas.empleado import EmpleadoCreate, EmpleadoInvitationActivateRequest, EmpleadoUpdate
+from app.services.id_utils import get_next_numeric_id
 from app.schemas.register import RegisterAdminRequest, RegisterCompanyRequest, RegisterEmpresaRequest
 from app.services.email_service import send_employee_invitation_email
 
@@ -518,7 +519,7 @@ def create_empleado(db: Session, payload: EmpleadoCreate, empresa_id: str, foto_
     db.flush()
 
     empleado = Empleado(
-        id=str(uuid.uuid4()),
+        id=get_next_numeric_id(db, Empleado),
         usuario_id=user.id,
         empresa_id=empresa_id,
         ci=payload.ci,
@@ -716,7 +717,7 @@ def register_empresa_step(db: Session, payload: RegisterCompanyRequest) -> dict[
 
     now = datetime.now(timezone.utc)
     empresa = Empresa(
-        id=str(uuid.uuid4()),
+        id=get_next_numeric_id(db, Empresa),
         nombre=payload.empresa_nombre,
         nit=payload.empresa_nit,
         email=payload.empresa_email.strip() if payload.empresa_email else None,
@@ -775,7 +776,7 @@ def register_admin_step(db: Session, payload: RegisterAdminRequest) -> User:
     db.flush()
 
     empleado = Empleado(
-        id=str(uuid.uuid4()),
+        id=get_next_numeric_id(db, Empleado),
         usuario_id=user.id,
         empresa_id=empresa.id,
         ci=payload.admin_ci,
@@ -797,7 +798,7 @@ def register_empresa_with_admin(db: Session, payload: RegisterEmpresaRequest) ->
 
     now = datetime.now(timezone.utc)
     empresa = Empresa(
-        id=str(uuid.uuid4()),
+        id=get_next_numeric_id(db, Empresa),
         nombre=payload.empresa_nombre,
         nit=payload.empresa_nit,
         email=payload.empresa_email.strip() if payload.empresa_email else None,
@@ -837,7 +838,7 @@ def register_empresa_with_admin(db: Session, payload: RegisterEmpresaRequest) ->
     db.flush()
 
     empleado = Empleado(
-        id=str(uuid.uuid4()),
+        id=get_next_numeric_id(db, Empleado),
         usuario_id=user.id,
         empresa_id=empresa.id,
         ci=payload.admin_ci,

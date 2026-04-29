@@ -10,6 +10,8 @@ import 'screens/client/vehicle_register_screen.dart';
 import 'screens/client/incident_report_screen.dart';
 import 'screens/client/incident_history_screen.dart';
 import 'screens/client/tracking_screen.dart';
+import 'screens/client/agregar_evidencia_screen.dart';
+import 'screens/client/detalle_incidente_screen.dart';
 import 'screens/client/seleccionar_ubicacion_screen.dart';
 import 'screens/employee/employee_home_screen.dart';
 import 'core/theme.dart';
@@ -37,10 +39,12 @@ class MyApp extends StatelessWidget {
           '/vehiculos': (context) => const VehiclesListScreen(),
           '/registrar-vehiculo': (context) => const VehicleRegisterScreen(),
           '/registrar-incidente': (context) => const IncidentReportScreen(),
+          '/agregar-evidencia': (context) => const AgregarEvidenciaScreen(),
           '/seleccionar-ubicacion': (context) =>
               const SeleccionarUbicacionScreen(),
           '/historial-incidentes': (context) => const IncidentHistoryScreen(),
           '/tracking': (context) => const TrackingScreen(),
+          '/detalle-incidente': (context) => const DetalleIncidenteScreen(),
         },
       ),
     );

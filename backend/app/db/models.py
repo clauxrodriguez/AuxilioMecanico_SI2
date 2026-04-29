@@ -1,6 +1,6 @@
 from __future__ import annotations
-
-from datetime import date, datetime
+import uuid
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import (
@@ -201,32 +201,44 @@ class Vehiculo(Base):
     def anio(self, value: int | None) -> None:
         self.ano = value
 
-
 class Incidente(Base):
     __tablename__ = "incidente"
 
-    # DB has integer PK named `id` and uses `id_usuario` / `id_vehiculo` columns
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    cliente_id: Mapped[str] = mapped_column(String(36), ForeignKey("cliente.id", ondelete="SET NULL"), nullable=True, name="id_usuario")
-    vehiculo_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("vehiculo.id", ondelete="SET NULL"), nullable=True, name="id_vehiculo")
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
+
+    cliente_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("cliente.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    vehiculo_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("vehiculo.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
     tipo: Mapped[str | None] = mapped_column(String(100), nullable=True)
     descripcion: Mapped[str | None] = mapped_column(Text, nullable=True)
     estado: Mapped[str] = mapped_column(String(50), nullable=False, default="pendiente")
     prioridad: Mapped[int | None] = mapped_column(Integer, nullable=True)
     latitud: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
     longitud: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
-    # Assignment-related fields were moved to `asignacion_servicio` to
-    # keep `incidente` as a pure client request (solicitud).
-    # Legacy columns (empleado_asignado_id, taller_id, tiempo_estimado_minutos)
-    # are removed from the ORM model and handled by a migration.
-    creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
 
     cliente: Mapped[Cliente | None] = relationship()
     vehiculo: Mapped[Vehiculo | None] = relationship()
-    # assignment relationship is available through AsignacionServicio model
     evidencias: Mapped[list["Evidencia"]] = relationship(back_populates="incidente")
     diagnosticos: Mapped[list["Diagnostico"]] = relationship(back_populates="incidente")
-
 
 class AsignacionServicio(Base):
     __tablename__ = "asignacion_servicio"
@@ -247,6 +259,30 @@ class AsignacionServicio(Base):
 
     incidente: Mapped[Incidente] = relationship()
     empleado: Mapped[Empleado] = relationship()
+
+
+class Pago(Base):
+    __tablename__ = "pago"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    asignacion_id: Mapped[str] = mapped_column(String(36), ForeignKey("asignacion_servicio.id", ondelete="CASCADE"), nullable=False)
+    incidente_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("incidente.id", ondelete="SET NULL"), nullable=True)
+    cliente_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("cliente.id", ondelete="SET NULL"), nullable=True)
+    empresa_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("empresa.id", ondelete="SET NULL"), nullable=True)
+
+    monto_total: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    metodo_pago: Mapped[str] = mapped_column(String(30), nullable=False)
+    estado: Mapped[str] = mapped_column(String(30), nullable=False, default="pendiente")
+    comision_plataforma: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    monto_taller: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+
+    fecha_creacion: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    fecha_confirmacion: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    asignacion: Mapped[AsignacionServicio] = relationship()
+    incidente: Mapped[Incidente | None] = relationship()
+    cliente: Mapped[Cliente | None] = relationship()
+    empresa: Mapped[Empresa | None] = relationship()
 
 
 class Evidencia(Base):

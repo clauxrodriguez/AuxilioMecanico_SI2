@@ -96,6 +96,9 @@ import { Cargo, Empleado, Rol } from '../../models/user-management.models';
       </form>
 
       <table class="table" *ngIf="!isCreateView">
+        <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
+          <button class="btn btn-ghost" (click)="fetchAll()">Refrescar</button>
+        </div>
         <thead>
           <tr>
             <th>Usuario</th>
