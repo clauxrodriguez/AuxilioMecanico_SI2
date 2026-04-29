@@ -26,11 +26,31 @@ class User {
 
   /// Crea un User desde JSON del backend
   factory User.fromJson(Map<String, dynamic> json) {
+    print('📥 JSON recibido del backend para User: $json');
+    
     // Determinar el rol basado en la estructura del backend
-    String role = (json['role'] ?? 'empleado').toString();
+    String role = 'empleado'; // Rol por defecto
+    
+    // Primero revisar si es admin
     if (json['es_admin'] == true || json['is_admin'] == true) {
       role = 'admin';
+      print('✅ Detectado como ADMIN');
     }
+    // Si hay un role explícito en el JSON, usarlo
+    else if (json['role'] != null) {
+      final roleValue = json['role'].toString().toLowerCase().trim();
+      if (roleValue.isNotEmpty) {
+        role = roleValue;
+        print('✅ Rol desde JSON: $roleValue -> asignado: $role');
+      }
+    }
+    // Si no hay role explícito, revisar si es cliente (tiene cliente_id)
+    else if (json['cliente_id'] != null && json['cliente_id'].toString().isNotEmpty) {
+      role = 'cliente';
+      print('✅ Detectado como CLIENTE (por cliente_id)');
+    }
+    
+    print('🎯 Rol final asignado: $role');
 
     final rawId = json['id'];
     final parsedId = rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '') ?? 0;

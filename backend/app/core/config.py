@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 7
     invitation_token_expire_hours: int = 48
 
-    media_root: str = "backendnew/media"
+    media_root: str = "app/media"
     media_url: str = "/media"
     frontend_base_url: str = "http://localhost:4200"
 

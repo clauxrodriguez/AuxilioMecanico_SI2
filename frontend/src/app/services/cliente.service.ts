@@ -66,7 +66,7 @@ export class ClienteApiService {
   }
 
   create(payload: ClienteCreatePayload) {
-    return this.http.post<ClienteDto>(`${this.base}/clientes/`, payload);
+    return this.http.post<TokenResponse>(`${environment.apiBaseUrl}/register/client/`, payload);
   }
 
   update(id: string, patch: ClienteUpdatePayload) {
@@ -94,7 +94,7 @@ export class ClienteApiService {
   }
 
   createVehiculo(clienteId: string, payload: Partial<VehiculoDto>) {
-    return this.http.post<VehiculoDto>(`${this.base}/clientes/${clienteId}/vehiculos`, payload);
+    return this.http.post<VehiculoDto>(`${this.base}/clientes/me/vehiculos`, payload);
   }
 
   createVehiculoPublic(clienteId: string, payload: Partial<VehiculoDto>) {

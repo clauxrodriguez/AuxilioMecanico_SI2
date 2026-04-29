@@ -3,29 +3,47 @@ import 'package:flutter/material.dart';
 
 /// Servicio para manejar notificaciones de Firebase Cloud Messaging
 class NotificationService {
-  static final FirebaseMessaging _firebaseMessaging =
-      FirebaseMessaging.instance;
+  static FirebaseMessaging? _firebaseMessaging;
+
+  static FirebaseMessaging? _messagingOrNull() {
+    try {
+      _firebaseMessaging ??= FirebaseMessaging.instance;
+      return _firebaseMessaging;
+    } catch (e) {
+      print('[NotificationService] Firebase no disponible: $e');
+      return null;
+    }
+  }
 
   /// Inicializar listeners de notificaciones
   static void initializeNotifications(
     BuildContext context,
     Function(String?) onIncidentNotification,
   ) {
-    // Escuchar mensajes cuando la app está en foreground
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      _handleForegroundMessage(context, message, onIncidentNotification);
-    });
+    try {
+      // Escuchar mensajes cuando la app está en foreground
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        _handleForegroundMessage(context, message, onIncidentNotification);
+      });
 
-    // Escuchar cuando se abre la app desde una notificación
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      _handleMessageOpenedApp(context, message, onIncidentNotification);
-    });
+      // Escuchar cuando se abre la app desde una notificación
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        _handleMessageOpenedApp(context, message, onIncidentNotification);
+      });
+    } catch (e) {
+      print('[NotificationService] No se pudieron inicializar notificaciones: $e');
+    }
   }
 
   /// Obtener FCM token
   static Future<String?> getToken() async {
     try {
-      final token = await _firebaseMessaging.getToken();
+      final messaging = _messagingOrNull();
+      if (messaging == null) {
+        return null;
+      }
+
+      final token = await messaging.getToken();
       print('[NotificationService] FCM Token: $token');
       return token;
     } catch (e) {
@@ -85,7 +103,12 @@ class NotificationService {
 
   /// Solicitar permisos de notificación
   static Future<NotificationSettings> requestPermission() async {
-    return await _firebaseMessaging.requestPermission(
+    final messaging = _messagingOrNull();
+    if (messaging == null) {
+      throw Exception('Firebase no disponible');
+    }
+
+    return await messaging.requestPermission(
       alert: true,
       announcement: false,
       badge: true,

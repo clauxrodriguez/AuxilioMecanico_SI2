@@ -1,7 +1,7 @@
 /// Constantes de la aplicación
 class AppConstants {
   // URLs base del API
-  static const String baseUrl = 'http://10.0.2.2:8001'; // Android Emulator
+  static const String baseUrl = 'http://10.0.2.2:8000'; // Android Emulator
   // Para dispositivo físico o web, cambiar a tu IP local: 'http://192.168.x.x:8001'
   
   static const String apiPrefix = '/api';

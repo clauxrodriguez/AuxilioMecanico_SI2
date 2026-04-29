@@ -49,6 +49,11 @@ export const appRoutes: Routes = [
         loadComponent: () =>
           import('./components/clientes/client-profile.component').then((m) => m.ClientProfileComponent),
       },
+      {
+        path: 'cliente/historial',
+        loadComponent: () =>
+          import('./components/incidentes/incident-history.component').then((m) => m.IncidentHistoryComponent),
+      },
       { path: 'vehiculos', component: VehiculosComponent },
       { path: 'incidentes', component: IncidentesComponent },
       { path: 'incidentes/lista', component: IncidentesComponent },

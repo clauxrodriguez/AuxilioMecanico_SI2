@@ -10,13 +10,14 @@ import { AuthService } from '../../services/auth/auth.service';
   imports: [CommonModule, RouterLink, RouterLinkActive],
   template: `
     <aside class="card side">
-      <h2>Panel del taller</h2>
+      <h2 *ngIf="!auth.isClient">Panel del taller</h2>
+      <h2 *ngIf="auth.isClient">Mi cuenta</h2>
       <p class="muted" *ngIf="auth.currentUser as user">
         {{ user.nombre_completo }}<br />
         <span class="badge">{{ auth.isClient ? 'Cliente' : (user.empresa_nombre || 'Sin empresa') }}</span>
       </p>
 
-      <nav>
+      <nav *ngIf="!auth.isClient">
         <a routerLink="/app/incidentes" routerLinkActive="active">Solicitudes de auxilio</a>
         <a routerLink="/app/empleados" routerLinkActive="active">Empleados (Técnicos)</a>
         <a routerLink="/app/taller/ubicacion" routerLinkActive="active">Ubicación del taller</a>
@@ -27,6 +28,12 @@ import { AuthService } from '../../services/auth/auth.service';
         <a routerLink="/app/taller/reportes" routerLinkActive="active">Reportes</a>
         <a routerLink="/app/roles" routerLinkActive="active">Roles y permisos</a>
         <a routerLink="/app/taller/configuracion" routerLinkActive="active">Configuración</a>
+      </nav>
+
+      <nav *ngIf="auth.isClient">
+        <a routerLink="/app/cliente/perfil" routerLinkActive="active">Mi perfil</a>
+        <a routerLink="/app/incidentes" routerLinkActive="active">Solicitar Auxilio</a>
+        <a routerLink="/app/cliente/historial" routerLinkActive="active">Seguimiento de Solicitud</a>
       </nav>
 
       <button class="btn btn-ghost" (click)="logout()">Cerrar sesion</button>

@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 
 import { ClienteApiService } from '../../services/cliente.service';
+import { AuthService } from '../../services/auth/auth.service';
 
 @Component({
   selector: 'app-cliente-create',
@@ -14,7 +15,7 @@ import { ClienteApiService } from '../../services/cliente.service';
       <header class="head">
         <div>
           <h2>Nuevo cliente</h2>
-          <p class="muted">Completa los datos del cliente. El vehiculo es opcional.</p>
+          <p class="muted">Completa los datos del cliente.</p>
         </div>
         <a routerLink="/app/clientes" class="btn btn-ghost">Volver al listado</a>
       </header>
@@ -64,38 +65,6 @@ import { ClienteApiService } from '../../services/cliente.service';
         <label style="display:flex; align-items:center; gap:0.5rem;">
           <input type="checkbox" formControlName="activo" />
           Cliente activo
-        </label>
-
-        <hr style="border:none; border-top:1px solid var(--line); margin:0.4rem 0;" />
-
-        <h3>Vehiculo inicial (opcional)</h3>
-        <p class="muted">Puedes dejar estos campos vacios y registrar el vehiculo despues.</p>
-
-        <div class="form-grid">
-          <div>
-            <label class="label">Marca</label>
-            <input class="input" formControlName="vehiculo_marca" />
-          </div>
-
-          <div>
-            <label class="label">Modelo</label>
-            <input class="input" formControlName="vehiculo_modelo" />
-          </div>
-
-          <div>
-            <label class="label">Placa</label>
-            <input class="input" formControlName="vehiculo_placa" />
-          </div>
-
-          <div>
-            <label class="label">Año</label>
-            <input class="input" type="number" formControlName="vehiculo_anio" />
-          </div>
-        </div>
-
-        <label style="display:flex; align-items:center; gap:0.5rem;">
-          <input type="checkbox" formControlName="vehiculo_principal" />
-          Marcar vehiculo como principal
         </label>
 
         <div class="actions">
@@ -149,16 +118,12 @@ export class ClienteCreateComponent {
     email: ['', [Validators.email, Validators.maxLength(120)]],
     telefono: ['', [Validators.maxLength(30)]],
     activo: [true],
-    vehiculo_marca: [''],
-    vehiculo_modelo: [''],
-    vehiculo_placa: [''],
-    vehiculo_anio: [null as number | null],
-    vehiculo_principal: [true],
   });
 
   constructor(
     private readonly fb: FormBuilder,
     private readonly api: ClienteApiService,
+    private readonly authService: AuthService,
     private readonly router: Router,
   ) {}
 
@@ -196,50 +161,29 @@ export class ClienteCreateComponent {
       activo: !!raw.activo,
     };
 
-    const vehiculoPayload = {
-      marca: this.optional(raw.vehiculo_marca),
-      modelo: this.optional(raw.vehiculo_modelo),
-      placa: this.optional(raw.vehiculo_placa),
-      anio: raw.vehiculo_anio ?? undefined,
-    };
-    const hasVehiculo = Boolean(
-      vehiculoPayload.marca || vehiculoPayload.modelo || vehiculoPayload.placa || vehiculoPayload.anio,
-    );
-    const markVehiculoPrincipal = !!raw.vehiculo_principal;
-
     this.loading = true;
     this.errorMsg = '';
 
     this.api.create(payload).subscribe({
-      next: (created) => {
-        if (!hasVehiculo) {
-          this.loading = false;
-          this.router.navigate(['/app/clientes', created.id]);
-          return;
-        }
+      next: (tokens) => {
+        (this.authService as unknown as { applyTokens: (value: { access: string; refresh: string }) => void }).applyTokens(tokens);
 
-        this.api.createVehiculo(created.id, vehiculoPayload).subscribe({
-          next: (vehiculo) => {
-            if (!markVehiculoPrincipal) {
-              this.loading = false;
-              this.router.navigate(['/app/clientes', created.id]);
-              return;
-            }
-
-            this.api.setPrincipal(vehiculo.id).subscribe({
-              next: () => {
+        this.authService.loadMyPermissions().subscribe({
+          next: () => {
+            this.api.getMe().subscribe({
+              next: (created) => {
                 this.loading = false;
                 this.router.navigate(['/app/clientes', created.id]);
               },
               error: (error) => {
                 this.loading = false;
-                this.errorMsg = error?.error?.detail || 'Cliente guardado, pero no se pudo marcar el vehiculo como principal.';
+                this.errorMsg = error?.error?.detail || 'No se pudo recuperar el cliente recién registrado.';
               },
             });
           },
-          error: (error) => {
+          error: () => {
             this.loading = false;
-            this.errorMsg = error?.error?.detail || 'Cliente guardado, pero no se pudo registrar el vehiculo.';
+            this.errorMsg = 'Cliente registrado, pero no se pudo iniciar la sesión.';
           },
         });
       },

@@ -55,6 +55,8 @@ class AuthProvider with ChangeNotifier {
         try {
           final apiService = ApiService(token: _token);
           _user = await apiService.getProfile();
+          print('✅ Usuario obtenido del backend: $_user');
+          print('✅ Rol del usuario: ${_user?.role}');
         } catch (e) {
           print('Error al obtener perfil: $e');
           // Si no se puede obtener el perfil, hacer logout
@@ -110,6 +112,8 @@ class AuthProvider with ChangeNotifier {
       // Obtener perfil del usuario
       final authApiService = ApiService(token: _token);
       _user = await authApiService.getProfile();
+      print('✅ Login exitoso. Usuario: $_user');
+      print('✅ Rol detectado: ${_user?.role}');
 
       // Obtener FCM token y enviarlo al backend
       await _sendFcmToken(authApiService);

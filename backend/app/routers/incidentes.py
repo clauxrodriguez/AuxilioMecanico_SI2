@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, WebSocket, WebSocketDisconnect, status
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -342,6 +342,7 @@ def incidentes_add_evidencia(
 @router.post("/{incidente_id}/evidencias/upload", response_model=dict)
 def incidentes_add_evid_file(
     incidente_id: str,
+    request: Request,
     archivo: UploadFile = File(...),
     tipo: str | None = Form(default=None),
     texto: str | None = Form(default=None),
@@ -370,12 +371,33 @@ def incidentes_add_evid_file(
         with open(tmp_path, "wb") as out:
             out.write(archivo.file.read())
 
-        # upload to Cloudinary
+        # Try Cloudinary first; if it is not configured or fails, store locally.
+        use_cloudinary = all(
+            [
+                settings.cloudinary_cloud_name,
+                settings.cloudinary_api_key,
+                settings.cloudinary_api_secret,
+            ]
+        )
+
         try:
-            folder = f"incidentes/{inc.id}"
-            public_url = cloudinary_upload_evidence(tmp_path, folder=folder)
+            if use_cloudinary:
+                folder = f"incidentes/{inc.id}"
+                public_url = cloudinary_upload_evidence(tmp_path, folder=folder)
+            else:
+                archivo.file.seek(0)
+                rel_path = save_incidente_evidence(archivo, inc.id)
+                public_url = str(request.base_url).rstrip("/") + f"{settings.media_url}/{rel_path}"
         except Exception as exc:
-            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Error subiendo a Cloudinary: {exc}")
+            try:
+                archivo.file.seek(0)
+                rel_path = save_incidente_evidence(archivo, inc.id)
+                public_url = str(request.base_url).rstrip("/") + f"{settings.media_url}/{rel_path}"
+            except Exception as local_exc:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=f"Error subiendo evidencia: {exc}; fallback local falló: {local_exc}",
+                )
 
         final_text = texto or ""
 

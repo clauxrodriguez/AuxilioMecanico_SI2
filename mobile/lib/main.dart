@@ -21,21 +21,20 @@ import 'services/notification_service.dart';
 
 /// Manejador de mensajes en background
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
-  await NotificationService.handleBackgroundMessage(message);
+  try {
+    await Firebase.initializeApp();
+    await NotificationService.handleBackgroundMessage(message);
+  } catch (e) {
+    debugPrint('Firebase no disponible en background: $e');
+  }
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inicializar Firebase
-  await Firebase.initializeApp();
-
-  // Configurar el manejador de mensajes en background
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-  // Solicitar permisos de notificación (iOS)
-  await FirebaseMessaging.instance.requestPermission();
+  // Firebase queda deshabilitado en el arranque porque este build no tiene
+  // la configuración generada (google-services.json / firebase_options.dart).
+  // Las llamadas de notificaciones ya tienen fallback seguro.
 
   runApp(const MyApp());
 }
@@ -110,14 +109,19 @@ class _AuthCheckState extends State<AuthCheck> {
 
     // Redirige según el rol del usuario
     final userRole = authProvider.userRole;
+    print('🔀 ROUTING: Rol del usuario = $userRole');
     if (userRole == 'admin') {
+      print('🔀 -> Dirigiendo a AdminHomeScreen');
       return const AdminHomeScreen();
     } else if (userRole == 'cliente') {
+      print('🔀 -> Dirigiendo a ClientHomeScreen');
       return const ClientHomeScreen();
     } else if (userRole == 'empleado') {
+      print('🔀 -> Dirigiendo a EmployeeHomeScreen');
       return const EmployeeHomeScreen();
     }
 
+    print('🔀 -> Rol desconocido, dirigiendo a LoginScreen');
     return const LoginScreen();
   }
 }

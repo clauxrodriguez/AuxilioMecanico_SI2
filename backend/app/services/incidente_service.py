@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 from app.db.models import Cliente, Diagnostico, Empleado, Evidencia, Incidente, Vehiculo
 from app.schemas.incidente import IncidenteCreate, IncidenteUpdate, TecnicoCercanoOut, TecnicoUbicacionUpdate
 from app.services.asignacion_service import create_asignacion, get_active_asignacion_for_incidente
-from app.services.id_utils import get_next_numeric_id
 
 
 def _distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -26,14 +25,12 @@ def _distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 
 def list_incidentes(db: Session) -> list[Incidente]:
-    # existing DB doesn't have `creado_en` on incidente; order by id desc instead
-    return db.execute(select(Incidente).order_by(Incidente.id.desc())).scalars().all()
+    return db.execute(select(Incidente).order_by(Incidente.creado_en.desc())).scalars().all()
 
 
 def create_incidente(db: Session, payload: IncidenteCreate, cliente_id: str | None = None) -> Incidente:
-    # Create incidente with provided cliente_id (DB uses integer PK for id)
     obj = Incidente(
-        id=get_next_numeric_id(db, Incidente),
+        id=str(uuid.uuid4()),
         cliente_id=cliente_id,
         vehiculo_id=payload.vehiculo_id,
         tipo=payload.tipo,
@@ -50,12 +47,7 @@ def create_incidente(db: Session, payload: IncidenteCreate, cliente_id: str | No
 
 
 def get_incidente_or_404(db: Session, incidente_id: str) -> Incidente:
-    # incidente.id in DB is integer; allow passing str or int
-    try:
-        key = int(incidente_id)
-    except Exception:
-        key = incidente_id
-    obj = db.get(Incidente, key)
+    obj = db.get(Incidente, incidente_id)
     if not obj:
         raise ValueError("Incidente no encontrado")
     return obj
