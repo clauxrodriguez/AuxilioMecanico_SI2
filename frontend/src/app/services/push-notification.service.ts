@@ -80,8 +80,7 @@ export class PushNotificationService {
 
     try {
       const token = await getToken(this.messaging, {
-        vapidKey:
-          'YOUR_VAPID_KEY', // Reemplazar con tu VAPID key de Firebase
+         vapidKey: environment.firebaseVapidKey, // Reemplazar con tu VAPID key de Firebase
       });
 
       if (token) {
