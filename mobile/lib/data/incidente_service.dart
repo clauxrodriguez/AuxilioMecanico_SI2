@@ -116,6 +116,34 @@ class IncidenteService {
     throw Exception('Error al subir evidencia archivo: ${resp.statusCode}');
   }
 
+  Future<Map<String, dynamic>> subirEvidenciaArchivoPath(
+    String id,
+    String filePath, {
+    String? tipo,
+    String? texto,
+  }) async {
+    final uri = Uri.parse(
+      '${AppConstants.baseUrl}/api/incidentes/$id/evidencias/upload',
+    );
+    final request = http.MultipartRequest('POST', uri);
+    // headers
+    request.headers.addAll(_buildHeaders(jsonContent: false));
+    if (tipo != null) request.fields['tipo'] = tipo;
+    if (texto != null) request.fields['texto'] = texto;
+
+    final f = File(filePath);
+    final filename = f.path.split(Platform.pathSeparator).last;
+    request.files.add(
+      await http.MultipartFile.fromPath('archivo', f.path, filename: filename),
+    );
+
+    final streamed = await request.send();
+    final resp = await http.Response.fromStream(streamed);
+    if (resp.statusCode >= 200 && resp.statusCode < 300)
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    throw Exception('Error al subir evidencia archivo: ${resp.statusCode}');
+  }
+
   Future<List<Map<String, dynamic>>> listarTecnicosCercanos(
     double lat,
     double lon, {

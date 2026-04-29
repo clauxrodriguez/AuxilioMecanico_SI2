@@ -223,6 +223,32 @@ class ApiService {
     );
   }
 
+  /// Actualizar FCM token - PATCH /api/auth/fcm-token
+  Future<Map<String, dynamic>> updateFcmToken(String token) async {
+    try {
+      final response = await http
+          .patch(
+            Uri.parse('${AppConstants.baseUrl}/api/auth/fcm-token'),
+            headers: _getHeaders(),
+            body: jsonEncode({'fcm_token': token}),
+          )
+          .timeout(AppConstants.requestTimeout);
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      } else if (response.statusCode == 401) {
+        throw Exception('No autorizado');
+      } else {
+        throw Exception(
+          'Error al actualizar FCM token: ${response.statusCode}',
+        );
+      }
+    } catch (e) {
+      _log('Error en updateFcmToken: $e');
+      rethrow;
+    }
+  }
+
   // Helpers
   void _log(String msg) {
     // simple debug print

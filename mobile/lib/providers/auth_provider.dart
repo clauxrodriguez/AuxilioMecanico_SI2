@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:jwt_decode/jwt_decode.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import '../core/constants.dart';
 import '../data/api_service.dart';
 import '../models/user.dart';
+import '../services/notification_service.dart';
 
 /// Proveedor de autenticación con Provider
 class AuthProvider with ChangeNotifier {
   final _storage = const FlutterSecureStorage();
-  
+
   String? _token;
   String? _refreshToken;
   User? _user;
@@ -21,10 +23,10 @@ class AuthProvider with ChangeNotifier {
   bool get isAuthenticated => _token != null;
   bool get isLoading => _isLoading;
   String? get error => _error;
-  
+
   /// Obtiene el rol del usuario actual
   String? get userRole => _user?.role;
-  
+
   /// Obtiene si el usuario es admin
   bool get isAdmin => _user?.role == AppConstants.roleAdmin;
 
@@ -40,13 +42,15 @@ class AuthProvider with ChangeNotifier {
     try {
       _isLoading = true;
       _token = await _storage.read(key: AppConstants.storageKeyToken);
-      _refreshToken = await _storage.read(key: AppConstants.storageKeyRefreshToken);
+      _refreshToken = await _storage.read(
+        key: AppConstants.storageKeyRefreshToken,
+      );
 
       if (_token != null && !Jwt.isExpired(_token!)) {
         // Token válido, decodificar usuario del token
         final decodedToken = Jwt.parseJwt(_token!);
         print('Token decodificado: $decodedToken');
-        
+
         // Obtener perfil completo del usuario desde el backend
         try {
           final apiService = ApiService(token: _token);
@@ -85,7 +89,9 @@ class AuthProvider with ChangeNotifier {
       );
 
       _token = response['access'];
-      _refreshToken = response.containsKey('refresh') ? response['refresh'] : null;
+      _refreshToken = response.containsKey('refresh')
+          ? response['refresh']
+          : null;
 
       // Verificar que el token no esté expirado
       if (_token == null || Jwt.isExpired(_token!)) {
@@ -104,6 +110,9 @@ class AuthProvider with ChangeNotifier {
       // Obtener perfil del usuario
       final authApiService = ApiService(token: _token);
       _user = await authApiService.getProfile();
+
+      // Obtener FCM token y enviarlo al backend
+      await _sendFcmToken(authApiService);
 
       _isLoading = false;
       notifyListeners();
@@ -142,7 +151,9 @@ class AuthProvider with ChangeNotifier {
       );
 
       _token = response['access'];
-      _refreshToken = response.containsKey('refresh') ? response['refresh'] : null;
+      _refreshToken = response.containsKey('refresh')
+          ? response['refresh']
+          : null;
 
       if (_token == null || Jwt.isExpired(_token!)) {
         throw Exception('Token inválido');
@@ -150,7 +161,10 @@ class AuthProvider with ChangeNotifier {
 
       await _storage.write(key: AppConstants.storageKeyToken, value: _token!);
       if (_refreshToken != null) {
-        await _storage.write(key: AppConstants.storageKeyRefreshToken, value: _refreshToken!);
+        await _storage.write(
+          key: AppConstants.storageKeyRefreshToken,
+          value: _refreshToken!,
+        );
       }
 
       final authApiService = ApiService(token: _token);
@@ -184,7 +198,7 @@ class AuthProvider with ChangeNotifier {
       await _storage.delete(key: AppConstants.storageKeyToken);
       await _storage.delete(key: AppConstants.storageKeyRefreshToken);
       await _storage.delete(key: AppConstants.storageKeyUser);
-      
+
       _token = null;
       _refreshToken = null;
       _user = null;
@@ -193,11 +207,42 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  /// Obtiene un mensaje de error legible
+  /// Obtener FCM token y enviarlo al backend
+  Future<void> _sendFcmToken(ApiService apiService) async {
+    try {
+      final fcmToken = await NotificationService.getToken();
+      if (fcmToken != null && fcmToken.isNotEmpty) {
+        await apiService.updateFcmToken(fcmToken);
+        print('[AuthProvider] FCM token enviado al backend');
+      }
+    } catch (e) {
+      print('[AuthProvider] Error enviando FCM token: $e');
+      // No fallar el login si hay error con FCM
+    }
+  }
+
+  /// Inicializar listeners de notificaciones
+  void initializeNotificationListeners(BuildContext context) {
+    NotificationService.initializeNotifications(context, (incidentId) {
+      _handleIncidentNotification(incidentId);
+    });
+  }
+
+  /// Manejar notificación de incidente
+  void _handleIncidentNotification(String? incidentId) {
+    if (incidentId != null) {
+      print('[AuthProvider] Notificación de incidente recibida: $incidentId');
+      // Notificar a los listeners que hay una nueva notificación
+      notifyListeners();
+    }
+  }
+
+  /// Obtener mensaje de error legible
   String _getErrorMessage(String error) {
     if (error.contains('Credenciales inválidas')) {
       return 'Usuario o contraseña incorrectos';
-    } else if (error.contains('Connection refused') || error.contains('Failed host lookup')) {
+    } else if (error.contains('Connection refused') ||
+        error.contains('Failed host lookup')) {
       return 'No se puede conectar al servidor';
     } else if (error.contains('Token inválido')) {
       return 'Token de autenticación inválido';

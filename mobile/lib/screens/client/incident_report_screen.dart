@@ -5,9 +5,10 @@ import '../../providers/auth_provider.dart';
 import '../../data/vehiculo_service.dart';
 import '../../data/incidente_service.dart';
 import '../../models/vehicle.dart';
-import 'package:flutter/widgets.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 
 class IncidentReportScreen extends StatelessWidget {
   const IncidentReportScreen({super.key});
@@ -30,12 +31,23 @@ class _IncidentReportFormState extends State<_IncidentReportForm> {
   Vehicle? _selected;
   final _descCtrl = TextEditingController();
   PlatformFile? _pickedFile;
+  String? _pickedTipo; // 'foto' or 'audio'
+  final SpeechToText _speechToText = SpeechToText();
+  bool _isListening = false;
+  String _baseDescriptionBeforeDictation = '';
   final _evidenceTextCtrl = TextEditingController();
 
   bool _loading = true;
   double? _latitud;
   double? _longitud;
-  int _prioridad = 1;
+  final int _prioridad = 1;
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   void initState() {
@@ -57,24 +69,18 @@ class _IncidentReportFormState extends State<_IncidentReportForm> {
         _loading = false;
       });
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error cargando vehículos: $e')));
+      _showSnack('Error cargando vehículos: $e');
     }
   }
 
   Future<void> _submit() async {
     if (_selected == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Selecciona un vehículo')));
+      _showSnack('Selecciona un vehículo');
       return;
     }
     // Validar que se haya seleccionado ubicación
     if (_latitud == null || _longitud == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selecciona una ubicación en el mapa')),
-      );
+      _showSnack('Selecciona una ubicación en el mapa');
       return;
     }
     final payload = {
@@ -94,10 +100,12 @@ class _IncidentReportFormState extends State<_IncidentReportForm> {
       // If there is a selected file or evidence text, upload it
       if (incidenteId != null) {
         if (_pickedFile != null) {
+          // determine tipo (fallback to foto)
+          final tipoToSend = _pickedTipo ?? 'foto';
           await svc.subirEvidenciaArchivo(
             incidenteId,
             _pickedFile!,
-            tipo: 'foto',
+            tipo: tipoToSend,
             texto: _evidenceTextCtrl.text.trim(),
           );
         } else if (_evidenceTextCtrl.text.trim().isNotEmpty) {
@@ -110,23 +118,95 @@ class _IncidentReportFormState extends State<_IncidentReportForm> {
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Incidente creado')));
+      _showSnack('Incidente creado');
+      if (!mounted) return;
       Navigator.pushNamed(context, '/historial-incidentes');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error creando incidente: $e')));
+      _showSnack('Error creando incidente: $e');
     }
   }
 
-  Future<void> _pickFile() async {
-    final res = await FilePicker.pickFiles(allowMultiple: false);
+  Future<void> _pickImage() async {
+    final res = await FilePicker.pickFiles(
+      allowMultiple: false,
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png'],
+    );
     if (res != null && res.files.isNotEmpty) {
-      setState(() => _pickedFile = res.files.first);
+      setState(() {
+        _pickedFile = res.files.first;
+        _pickedTipo = 'foto';
+      });
     }
+  }
+
+  // Note: recording-as-file removed; only dictation via speech_to_text is used.
+
+  Future<void> _toggleDictation() async {
+    if (_isListening) {
+      _speechToText.stop();
+      setState(() => _isListening = false);
+      return;
+    }
+
+    final status = await Permission.microphone.request();
+    if (!status.isGranted) {
+      if (!mounted) return;
+      _showSnack('Permiso de micrófono denegado');
+      return;
+    }
+
+    final available = await _speechToText.initialize(
+      onStatus: (status) {
+        if (status == 'notListening' || status == 'done') {
+          if (mounted) setState(() => _isListening = false);
+        }
+      },
+    );
+    if (!available) {
+      if (!mounted) return;
+      _showSnack('Reconocimiento de voz no disponible');
+      return;
+    }
+
+    // Save base text to avoid duplicates from partial results
+    _baseDescriptionBeforeDictation = _descCtrl.text;
+
+    setState(() => _isListening = true);
+    _speechToText.listen(
+      onResult: (result) {
+        final recognized = result.recognizedWords ?? '';
+        final base = _baseDescriptionBeforeDictation.trim();
+        final combined = base.isEmpty
+            ? recognized
+            : '$base ${recognized.trim()}';
+        setState(() {
+          _descCtrl.text = combined;
+          _descCtrl.selection = TextSelection.fromPosition(
+            TextPosition(offset: _descCtrl.text.length),
+          );
+        });
+
+        if (result.finalResult) {
+          _speechToText.stop();
+          if (mounted) setState(() => _isListening = false);
+        }
+      },
+      listenMode: ListenMode.dictation,
+      partialResults: true,
+      localeId: 'es_BO',
+    );
+  }
+
+  @override
+  void dispose() {
+    _descCtrl.dispose();
+    _evidenceTextCtrl.dispose();
+    try {
+      _speechToText.stop();
+    } catch (_) {}
+    super.dispose();
   }
 
   @override
@@ -178,11 +258,7 @@ class _IncidentReportFormState extends State<_IncidentReportForm> {
                           await Geolocator.isLocationServiceEnabled();
                       if (!mounted) return;
                       if (!serviceEnabled) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Activa el servicio de ubicación'),
-                          ),
-                        );
+                        _showSnack('Activa el servicio de ubicación');
                         return;
                       }
                       LocationPermission permission =
@@ -194,11 +270,7 @@ class _IncidentReportFormState extends State<_IncidentReportForm> {
                       }
                       if (permission == LocationPermission.denied ||
                           permission == LocationPermission.deniedForever) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Permiso de ubicación denegado'),
-                          ),
-                        );
+                        _showSnack('Permiso de ubicación denegado');
                         return;
                       }
                       try {
@@ -210,11 +282,7 @@ class _IncidentReportFormState extends State<_IncidentReportForm> {
                         });
                       } catch (e) {
                         if (!mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Error obteniendo ubicación: $e'),
-                          ),
-                        );
+                        _showSnack('Error obteniendo ubicación: $e');
                       }
                     },
                     icon: const Icon(Icons.my_location),
@@ -240,14 +308,50 @@ class _IncidentReportFormState extends State<_IncidentReportForm> {
                     maxLines: 2,
                   ),
                   const SizedBox(height: 8),
-                  ElevatedButton.icon(
-                    onPressed: _pickFile,
-                    icon: const Icon(Icons.attach_file),
-                    label: Text(
-                      _pickedFile == null
-                          ? 'Adjuntar archivo (foto/audio)'
-                          : _pickedFile!.name,
-                    ),
+                  Row(
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: _toggleDictation,
+                        icon: Icon(
+                          _isListening ? Icons.mic_off : Icons.mic_none,
+                        ),
+                        label: Text(
+                          _isListening
+                              ? 'Detener dictado'
+                              : 'Dictar descripción',
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _isListening ? 'Escuchando...' : '',
+                          style: const TextStyle(fontStyle: FontStyle.italic),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _pickImage,
+                              icon: const Icon(Icons.camera_alt),
+                              label: const Text('Agregar foto'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      if (_pickedFile != null)
+                        Text(
+                          '${_pickedFile!.name} (${_pickedTipo ?? 'archivo'})',
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   const SizedBox(height: 20),

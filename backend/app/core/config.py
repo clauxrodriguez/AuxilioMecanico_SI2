@@ -31,6 +31,14 @@ class Settings(BaseSettings):
 
     cors_origins: str = "*"
 
+    # Cloudinary / OpenAI (agregadas para permitir variables extra en .env)
+    cloudinary_cloud_name: str | None = None
+    cloudinary_api_key: str | None = None
+    cloudinary_api_secret: str | None = None
+    openai_api_key: str | None = None
+    firebase_credentials_path: str | None = None
+    FIREBASE_CREDENTIALS_PATH: str | None = None
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 

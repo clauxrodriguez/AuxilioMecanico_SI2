@@ -66,7 +66,9 @@ lib/
    ```bash
    flutter pub get
    ```
-
+   analizar:
+   flutter analyze
+flutter pub upgrade record
 3. **Configurar la URL del backend**
    - Editar `lib/core/constants.dart`
    - Cambiar `baseUrl` según tu entorno:

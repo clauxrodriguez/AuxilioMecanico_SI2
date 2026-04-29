@@ -17,3 +17,7 @@ class TokenResponse(BaseModel):
 
 class AccessTokenResponse(BaseModel):
     access: str
+
+
+class FcmTokenUpdate(BaseModel):
+    fcm_token: str

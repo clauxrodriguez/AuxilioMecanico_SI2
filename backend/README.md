@@ -132,7 +132,8 @@ alembic upgrade head
 ## Ejecutar la API
 
 Con el entorno virtual activo y desde `backend/`:
-
+## instala cloudinary 
+pip install cloudinary openai python-multipart
 ```powershell
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
 ```
@@ -216,6 +217,13 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
   - `GET /api/incidentes/{incidente_id}/diagnosticos` - listar diagnósticos
   - `POST /api/incidentes/{incidente_id}/evidencias` - agregar evidencia (url/texto)
   - `POST /api/incidentes/{incidente_id}/evidencias/upload` - subir archivo (multipart)
+ 
+- Pagos:
+  - `POST /api/asignaciones/{asignacion_id}/pago` - crear pago para una asignación
+  - `GET /api/pagos/` - listar pagos (para empleados/empresa o para cliente autenticado)
+  - `GET /api/pagos/{pago_id}` - obtener detalle de un pago
+  - `PATCH /api/pagos/{pago_id}/confirmar` - confirmar pago
+  - `PATCH /api/pagos/{pago_id}/rechazar` - rechazar pago
 
 ## Verificacion rapida
 

@@ -168,6 +168,7 @@ class Cliente(Base):
     nombre: Mapped[str] = mapped_column(String(150), nullable=False)
     email: Mapped[str | None] = mapped_column(String(254), nullable=True)
     telefono: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    fcm_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
     usuario: Mapped[User | None] = relationship()

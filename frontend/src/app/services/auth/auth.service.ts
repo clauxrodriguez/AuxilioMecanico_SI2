@@ -15,6 +15,7 @@ import {
   RegisterEmpresaRequest,
   TokenResponse,
 } from '../../models/auth.models';
+import { PushNotificationService } from '../push-notification.service';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -32,6 +33,7 @@ export class AuthService {
   constructor(
     private readonly http: HttpClient,
     private readonly router: Router,
+    private readonly pushNotificationService: PushNotificationService,
   ) {
     this.restoreSession();
   }
@@ -55,14 +57,37 @@ export class AuthService {
   login(payload: LoginRequest): Observable<TokenResponse> {
     return this.http.post<TokenResponse>(`${environment.apiBaseUrl}/token/`, payload).pipe(
       tap((tokens) => this.applyTokens(tokens)),
-      switchMap((tokens) => this.loadMyPermissions().pipe(switchMap(() => of(tokens)))),
+      switchMap((tokens) =>
+        this.loadMyPermissions().pipe(
+          switchMap(() => {
+            // Solicitar permiso de notificaciones después del login exitoso
+            this.pushNotificationService.requestPermission().then((token) => {
+              if (token) {
+                this.pushNotificationService.sendTokenToBackend(token);
+              }
+            });
+            return of(tokens);
+          })
+        )
+      ),
     );
   }
 
   register(payload: RegisterEmpresaRequest): Observable<TokenResponse> {
     return this.http.post<TokenResponse>(`${environment.apiBaseUrl}/register/`, payload).pipe(
       tap((tokens) => this.applyTokens(tokens)),
-      switchMap((tokens) => this.loadMyPermissions().pipe(switchMap(() => of(tokens)))),
+      switchMap((tokens) =>
+        this.loadMyPermissions().pipe(
+          switchMap(() => {
+            this.pushNotificationService.requestPermission().then((token) => {
+              if (token) {
+                this.pushNotificationService.sendTokenToBackend(token);
+              }
+            });
+            return of(tokens);
+          })
+        )
+      ),
     );
   }
 
@@ -73,14 +98,36 @@ export class AuthService {
   registerAdmin(payload: RegisterAdminRequest): Observable<TokenResponse> {
     return this.http.post<TokenResponse>(`${environment.apiBaseUrl}/register/admin/`, payload).pipe(
       tap((tokens) => this.applyTokens(tokens)),
-      switchMap((tokens) => this.loadMyPermissions().pipe(switchMap(() => of(tokens)))),
+      switchMap((tokens) =>
+        this.loadMyPermissions().pipe(
+          switchMap(() => {
+            this.pushNotificationService.requestPermission().then((token) => {
+              if (token) {
+                this.pushNotificationService.sendTokenToBackend(token);
+              }
+            });
+            return of(tokens);
+          })
+        )
+      ),
     );
   }
 
   activateEmployeeInvitation(payload: EmployeeInvitationActivateRequest): Observable<TokenResponse> {
     return this.http.post<TokenResponse>(`${environment.apiBaseUrl}/employee-invitations/activate/`, payload).pipe(
       tap((tokens) => this.applyTokens(tokens)),
-      switchMap((tokens) => this.loadMyPermissions().pipe(switchMap(() => of(tokens)))),
+      switchMap((tokens) =>
+        this.loadMyPermissions().pipe(
+          switchMap(() => {
+            this.pushNotificationService.requestPermission().then((token) => {
+              if (token) {
+                this.pushNotificationService.sendTokenToBackend(token);
+              }
+            });
+            return of(tokens);
+          })
+        )
+      ),
     );
   }
 

@@ -34,6 +34,12 @@ from app.services.incidente_service import (
 from app.services.asignacion_service import get_active_asignacion_for_incidente
 from app.services.file_storage import save_incidente_evidence
 from app.services.tracking_ws import tracking_ws_manager
+from app.services.cloudinary_service import upload_evidence as cloudinary_upload_evidence
+from app.services.transcription_service import transcribe_audio
+import tempfile
+import os
+import shutil
+from app.services.notification_service import notify_new_incident
 
 router = APIRouter(prefix="/incidentes", tags=["incidentes"])
 settings = get_settings()
@@ -70,6 +76,12 @@ def incidentes_create(payload: IncidenteCreate, user=Depends(get_current_user), 
         cliente_id = cliente.id
 
     inc = create_incidente(db, payload, cliente_id=cliente_id)
+    # Notify available technicians (don't let FCM errors break creation)
+    try:
+        notify_new_incident(db, inc)
+    except Exception:
+        # Log only; creation already completed
+        pass
     return inc
 
 
@@ -342,8 +354,8 @@ def incidentes_add_evid_file(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incidente no encontrado")
 
     inferred_tipo = tipo
+    content_type = (archivo.content_type or "").lower()
     if not inferred_tipo:
-        content_type = (archivo.content_type or "").lower()
         if content_type.startswith("image/"):
             inferred_tipo = "foto"
         elif content_type.startswith("audio/"):
@@ -351,7 +363,42 @@ def incidentes_add_evid_file(
         else:
             inferred_tipo = "archivo"
 
-    rel_path = save_incidente_evidence(archivo, incidente_id=inc.id)
-    public_url = f"{settings.media_url.rstrip('/')}/{rel_path}"
-    ev = add_evidencia(db, inc, inferred_tipo, url_archivo=public_url, texto=texto)
-    return {"id": ev.id, "url_archivo": public_url, "tipo": inferred_tipo}
+    # save to temp file
+    tmp_dir = tempfile.mkdtemp(prefix="evidence_")
+    tmp_path = os.path.join(tmp_dir, archivo.filename or "upload.bin")
+    try:
+        with open(tmp_path, "wb") as out:
+            out.write(archivo.file.read())
+
+        # upload to Cloudinary
+        try:
+            folder = f"incidentes/{inc.id}"
+            public_url = cloudinary_upload_evidence(tmp_path, folder=folder)
+        except Exception as exc:
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Error subiendo a Cloudinary: {exc}")
+
+        final_text = texto or ""
+
+        # If audio, transcribe
+        is_audio = inferred_tipo == "audio" or content_type.startswith("audio/")
+        if is_audio:
+            try:
+                transcription = transcribe_audio(tmp_path)
+            except Exception as exc:
+                raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Error transcribiendo audio: {exc}")
+            if transcription:
+                if final_text:
+                    final_text = f"{final_text}\n{transcription}"
+                else:
+                    final_text = transcription
+
+        # persist evidencia
+        ev = add_evidencia(db, inc, inferred_tipo, url_archivo=public_url, texto=final_text)
+
+    finally:
+        try:
+            shutil.rmtree(tmp_dir)
+        except Exception:
+            pass
+
+    return {"id": ev.id, "url_archivo": public_url, "tipo": inferred_tipo, "texto": ev.texto}

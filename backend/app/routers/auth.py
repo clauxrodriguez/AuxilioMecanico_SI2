@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.db.models import Cliente, User
 from app.db.session import get_db
 from app.deps.auth import get_current_user
-from app.schemas.auth import AccessTokenResponse, LoginRequest, RefreshRequest, TokenResponse
+from app.schemas.auth import AccessTokenResponse, LoginRequest, RefreshRequest, TokenResponse, FcmTokenUpdate
 from app.schemas.empleado import EmpleadoInvitationActivateRequest
 from app.schemas.cliente import ClienteCreate
 from app.schemas.register import RegisterAdminRequest, RegisterCompanyRequest, RegisterCompanyResponse, RegisterEmpresaRequest
@@ -14,6 +14,7 @@ from app.services.auth_service import authenticate_user, create_token_pair, refr
 from app.services.permission_service import get_user_permissions, resolve_employee
 from app.services.user_management import activate_empleado_invitation, register_admin_step, register_empresa_step, register_empresa_with_admin
 from app.services.cliente_service import create_cliente, get_cliente_for_user
+from app.services.permission_service import resolve_employee
 
 router = APIRouter(tags=["auth"])
 
@@ -104,3 +105,22 @@ def my_permissions(
     db: Session = Depends(get_db),
 ) -> list[str]:
     return sorted(list(get_user_permissions(db, user)))
+
+
+@router.patch("/fcm-token")
+def update_fcm_token(payload: FcmTokenUpdate, user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
+    """Actualizar FCM token para el usuario autenticado (empleado o cliente)."""
+    empleado = resolve_employee(db, user)
+    if empleado:
+        empleado.fcm_token = payload.fcm_token
+        db.commit()
+        return {"message": "FCM token actualizado"}
+
+    cliente = get_cliente_for_user(db, user.id)
+    if cliente:
+        cliente.fcm_token = payload.fcm_token
+        db.commit()
+        return {"message": "FCM token actualizado"}
+
+    # No asociado a cliente ni empleado: guardar en User? por ahora no
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Usuario no asociado a cliente ni empleado")
