@@ -30,6 +30,9 @@ from app.services.incidente_service import (
     update_tecnico_ubicacion,
     add_diagnostico,
     add_evidencia,
+    list_diagnosticos_for_incidente,
+    get_diagnostico_or_404,
+    update_diagnostico,
 )
 from app.services.asignacion_service import get_active_asignacion_for_incidente
 from app.services.file_storage import save_incidente_evidence
@@ -50,9 +53,12 @@ settings = get_settings()
 # ============================================================
 
 @router.get("/", response_model=list[IncidenteOut])
-def incidentes_list(db: Session = Depends(get_db)) -> list[IncidenteOut]:
-    """Listar todos los incidentes (requiere autenticación)"""
-    return list_incidentes(db)
+def incidentes_list(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+) -> list[IncidenteOut]:
+    return list_incidentes(db, skip=skip, limit=limit)
 
 
 @router.get("/tecnicos/cercanos", response_model=list[TecnicoCercanoOut])
@@ -150,7 +156,7 @@ async def tecnicos_actualizar_mi_ubicacion(
 
     # broadcast location updates only for incidents where this technician
     # is actively assigned via asignacion_servicio
-    incidentes_asignados = list_incidentes(db)
+    incidentes_asignados = list_incidentes(db, skip=0, limit=1000)
     for inc in incidentes_asignados:
         asign = get_active_asignacion_for_incidente(db, inc.id)
         if not asign or asign.empleado_id != updated.id:
@@ -335,6 +341,11 @@ def incidentes_add_evidencia(
         inc = get_incidente_or_404(db, incidente_id)
     except ValueError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incidente no encontrado")
+    
+    tipo = body.get("tipo")
+    url_archivo = body.get("url_archivo")
+    texto = body.get("texto")
+    
     ev = add_evidencia(db, inc, tipo, url_archivo=url_archivo, texto=texto)
     return {"id": ev.id}
 
@@ -366,39 +377,60 @@ def incidentes_add_evid_file(
     # save to temp file
     tmp_dir = tempfile.mkdtemp(prefix="evidence_")
     tmp_path = os.path.join(tmp_dir, archivo.filename or "upload.bin")
+    public_url = None
+    
     try:
+        # Write uploaded file to temp location
         with open(tmp_path, "wb") as out:
-            out.write(archivo.file.read())
+            content = archivo.file.read()
+            if not content:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Archivo vacío"
+                )
+            out.write(content)
 
-        # upload to Cloudinary
+        # Upload to Cloudinary (or save locally)
         try:
             folder = f"incidentes/{inc.id}"
             public_url = cloudinary_upload_evidence(tmp_path, folder=folder)
         except Exception as exc:
-            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Error subiendo a Cloudinary: {exc}")
+            print(f"Error uploading to Cloudinary: {exc}")
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Error subiendo archivo: {str(exc)[:100]}"
+            )
 
         final_text = texto or ""
 
         # If audio, transcribe
         is_audio = inferred_tipo == "audio" or content_type.startswith("audio/")
-        if is_audio:
+        if is_audio and settings.openai_api_key:
             try:
                 transcription = transcribe_audio(tmp_path)
+                if transcription:
+                    if final_text:
+                        final_text = f"{final_text}\n{transcription}"
+                    else:
+                        final_text = transcription
             except Exception as exc:
-                raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Error transcribiendo audio: {exc}")
-            if transcription:
-                if final_text:
-                    final_text = f"{final_text}\n{transcription}"
-                else:
-                    final_text = transcription
+                # Log transcription error but don't fail the upload
+                print(f"Error transcribing audio: {exc}")
+                # Optionally append error message to final_text
+                # final_text = f"{final_text}\n[Transcripción falló: {str(exc)[:50]}]"
 
-        # persist evidencia
+        # Persist evidencia
         ev = add_evidencia(db, inc, inferred_tipo, url_archivo=public_url, texto=final_text)
+        return {
+            "id": ev.id,
+            "url_archivo": public_url,
+            "tipo": inferred_tipo,
+            "texto": ev.texto
+        }
 
     finally:
+        # Clean up temp directory
         try:
             shutil.rmtree(tmp_dir)
         except Exception:
             pass
-
-    return {"id": ev.id, "url_archivo": public_url, "tipo": inferred_tipo, "texto": ev.texto}

@@ -27,6 +27,7 @@ class EmpleadoBase(BaseModel):
 
 class EmpleadoCreate(EmpleadoBase):
     email: EmailStr
+    send_credentials: bool = False
 
 
 class EmpleadoInvitationActivateRequest(BaseModel):

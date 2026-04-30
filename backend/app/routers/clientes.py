@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -25,8 +25,12 @@ router = APIRouter(prefix="/api/clientes", tags=["clientes"])
 
 
 @router.get("/", response_model=list[ClienteOut])
-def clientes_list(db: Session = Depends(get_db)) -> list[ClienteOut]:
-    return list_clientes(db)
+def clientes_list(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+) -> list[ClienteOut]:
+    return list_clientes(db, skip=skip, limit=limit)
 
 
 @router.get("/me/", response_model=ClienteOut)

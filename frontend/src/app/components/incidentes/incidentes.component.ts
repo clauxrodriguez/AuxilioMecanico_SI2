@@ -1,880 +1,781 @@
 import { CommonModule } from '@angular/common';
-import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClientModule } from '@angular/common/http';
 import { forkJoin } from 'rxjs';
-import { Router } from '@angular/router';
 
 import {
   IncidenteApiService,
   IncidenteDto,
-  IncidenteTrackingDto,
   TecnicoCercanoDto,
+  AsignarTecnicoRequest,
 } from '../../services/incidente.service';
 import { AuthService } from '../../services/auth/auth.service';
-import { ClienteApiService, VehiculoDto } from '../../services/cliente.service';
 
 @Component({
-  selector: 'app-incidentes',
+  selector: 'app-incidentes-panel',
   standalone: true,
   imports: [CommonModule, FormsModule, HttpClientModule],
   template: `
-    <div class="card">
-      <header class="head">
-        <h3>{{ isClient && showIncidentList ? 'Incidentes' : isClient ? 'Solicitud de Auxilio' : 'Incidentes y Ubicaciones (Realtime)' }}</h3>
+    <div class="container">
+      <header class="header">
+        <h2>Gestión de Incidentes</h2>
+        <p class="subtitle">Asigna técnicos a solicitudes pendientes</p>
       </header>
 
-      <section class="panel" style="margin-bottom: 1rem;" *ngIf="!isClient || !showIncidentList">
-        <h4>{{ isClient ? 'Solicitud de Auxilio' : 'Nuevo incidente / Solicitud de auxilio' }}</h4>
-
-        <ng-container *ngIf="isClient; else staffIncidentForm">
-          <div class="request-layout">
-            <div class="map-stack">
-              <div class="section-caption">
-                <strong>Mapa de ubicación</strong>
-                <span class="muted">Tu ubicación actual en vivo aparece en rojo.</span>
-              </div>
-              <div #reportMap class="map-canvas map-large"></div>
-              <div class="muted tiny">Ubicación actual sincronizada.</div>
-              <div style="display:flex; gap:0.5rem; flex-wrap: wrap;">
-                <button class="btn btn-ghost" (click)="useBrowserLocationForIncident()">Recentrar mi ubicación</button>
-                <button class="btn btn-ghost" [class.active]="watchPositionId != null" (click)="toggleRealtimeLocation()">
-                  {{ watchPositionId == null ? 'Activar ubicación en tiempo real' : 'Detener ubicación en tiempo real' }}
-                </button>
-              </div>
-            </div>
-
-            <div class="request-form-card">
-              <div class="stack-gap">
-                <div>
-                  <label class="label">Vehículo</label>
-                  <select class="input input-lg" [(ngModel)]="createForm.vehiculo_id">
-                    <option value="">Selecciona un vehículo</option>
-                    <option *ngFor="let v of myVehicles" [value]="v.id">{{ v.marca || 'N/A' }} {{ v.modelo || '' }} - {{ v.placa || 'N/A' }}</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label class="label">Tipo de falla o incidente</label>
-                  <input class="input input-lg" [(ngModel)]="createForm.tipo" placeholder="Pinchazo, batería, grúa, motor, etc." />
-                </div>
-
-                <div>
-                  <label class="label">Descripción del detalle del incidente</label>
-                  <textarea
-                    class="input text-area"
-                    [(ngModel)]="createForm.descripcion"
-                    rows="9"
-                    placeholder="Describe el incidente con detalle. También puedes grabar voz abajo."></textarea>
-                  <div class="voice-controls">
-                    <button class="btn btn-primary" type="button" [class.active]="recordingVoice" (click)="toggleVoiceRecording()">
-                      {{ recordingVoice ? 'Detener grabación' : 'Grabar voz' }}
-                    </button>
-                    <span class="muted tiny" *ngIf="recordingVoice">Grabando audio...</span>
-                    <span class="muted tiny" *ngIf="audioEvidenceFile">Audio listo: {{ audioEvidenceFile.name }}</span>
-                  </div>
-                  <audio *ngIf="voicePreviewUrl" [src]="voicePreviewUrl" controls style="width: 100%; margin-top: 0.6rem;"></audio>
-                </div>
-
-                <section class="evidence-box">
-                  <button class="btn btn-ghost" type="button" [class.active]="showEvidencePanel" (click)="showEvidencePanel = !showEvidencePanel">Agregar evidencias</button>
-                  <div *ngIf="showEvidencePanel" class="evidence-panel">
-                    <div>
-                      <label class="label">Imágenes</label>
-                      <input class="input input-file" type="file" accept="image/*" multiple (change)="onImageEvidenceSelected($event)" />
-                    </div>
-                    <div class="muted tiny" *ngIf="imageEvidenceFiles.length > 0">Imágenes seleccionadas: {{ imageEvidenceFiles.length }}</div>
-                  </div>
-                </section>
-
-                <div style="display:flex; gap:0.5rem; flex-wrap: wrap;">
-                  <button class="btn btn-primary btn-submit" type="button" (click)="createIncident()">Enviar Solicitud de Auxilio</button>
-                </div>
-              </div>
-            </div>
+      <!-- SecciÃ³n: Mi ubicaciÃ³n del tÃ©cnico -->
+      <section class="section tech-location">
+        <h3>Mi Ubicación (Técnico)</h3>
+        <div class="tech-location-content">
+          <div class="checkbox-group">
+            <input type="checkbox" id="disponible" [(ngModel)]="miDisponible" />
+            <label for="disponible">Disponible para asignaciones</label>
           </div>
-        </ng-container>
-
-        <ng-template #staffIncidentForm>
-          <div class="form-grid">
-            <input class="input" [(ngModel)]="createForm.tipo" placeholder="Tipo (grúa, batería, pinchazo...)" />
-            <input class="input" [(ngModel)]="createForm.descripcion" placeholder="Descripción" />
-            <input class="input" [(ngModel)]="createForm.vehiculo_id" placeholder="Vehículo ID (opcional)" />
-            <input class="input" [(ngModel)]="createForm.prioridad" type="number" min="1" max="5" placeholder="Prioridad (1-5)" />
-            <input class="input" [(ngModel)]="createForm.latitud" type="number" step="0.000001" placeholder="Latitud" />
-            <input class="input" [(ngModel)]="createForm.longitud" type="number" step="0.000001" placeholder="Longitud" />
-          </div>
-          <div class="muted" style="margin-top: 0.5rem;">
-            Mi posición actual: {{ currentLat ?? 'N/A' }}, {{ currentLng ?? 'N/A' }}
-          </div>
-          <div #reportMap class="map-canvas" style="margin-top: 0.75rem;"></div>
-          <div style="display:flex; gap:0.5rem; margin-top:0.75rem; flex-wrap: wrap;">
-            <button class="btn" (click)="useBrowserLocationForIncident()">Usar mi ubicación</button>
-            <button class="btn btn-ghost" (click)="toggleRealtimeLocation()">
-              {{ watchPositionId == null ? 'Iniciar ubicación en tiempo real' : 'Detener ubicación en tiempo real' }}
-            </button>
-          </div>
-        </ng-template>
-
-      </section>
-
-      <section class="panel" *ngIf="isClient && showIncidentList">
-        <div class="section-head" style="margin-bottom: 0.75rem;">
-          <div>
-            <h4>Incidentes</h4>
-            <p class="muted">Historial y seguimiento de tus solicitudes.</p>
-          </div>
-          <button class="btn btn-ghost" type="button" (click)="load()">Actualizar</button>
-        </div>
-
-        <div *ngIf="loading" class="muted">Cargando incidentes...</div>
-        <div *ngIf="!loading && incidents.length === 0" class="muted">No hay incidentes.</div>
-
-        <ul *ngIf="incidents.length > 0">
-          <li *ngFor="let it of incidents" class="incident-row">
-            <div>
-              <strong>{{ it.tipo || 'Incidente' }}</strong>
-              <div class="muted">{{ it.descripcion }}</div>
-              <div class="muted">Estado: {{ it.estado }}</div>
-            </div>
-            <div style="display:flex; gap:0.5rem; flex-wrap: wrap; justify-content:flex-end;">
-              <button class="btn btn-ghost" (click)="openTracking(it)">Ver tracking</button>
-            </div>
-          </li>
-        </ul>
-      </section>
-
-      <section class="panel" style="margin-bottom: 1rem;" *ngIf="!isClient">
-        <h4>Mi ubicación (técnico)</h4>
-        <div style="display:flex; gap:0.5rem; flex-wrap: wrap; align-items: center;">
-          <label>Disponible <input type="checkbox" [(ngModel)]="miDisponible" /></label>
-          <button class="btn" (click)="actualizarMiUbicacion()">Actualizar ubicación actual</button>
-        </div>
-      </section>
-
-      <section class="panel" style="margin-bottom: 1rem;" *ngIf="selectedTracking">
-        <h4>Tracking del incidente {{ selectedTracking.incidente_id }}</h4>
-        <div class="muted">
-          Estado: {{ selectedTracking.estado }}
-          • Destino: {{ selectedTracking.latitud_incidente ?? 'N/A' }}, {{ selectedTracking.longitud_incidente ?? 'N/A' }}
-        </div>
-        <div class="muted">
-          Técnico: {{ selectedTracking.tecnico_nombre || 'Sin asignar' }}
-          • Posición: {{ selectedTracking.tecnico_latitud ?? 'N/A' }}, {{ selectedTracking.tecnico_longitud ?? 'N/A' }}
-        </div>
-        <div style="display:flex; gap:0.5rem; margin-top:0.75rem;">
-          <button class="btn" (click)="refreshTracking()">Refrescar tracking</button>
-          <button class="btn" (click)="toggleTrackingSocket()">
-            {{ trackingSocketConnected ? 'Desconectar WS' : 'Conectar WS' }}
+          <button class="btn btn-primary" (click)="actualizarMiUbicacion()" [disabled]="updatingLocation">
+            {{ updatingLocation ? 'Actualizando...' : 'Actualizar mi ubicación' }}
           </button>
-          <button class="btn btn-ghost" (click)="buscarTecnicosCercanosTracking()" *ngIf="!isClient">Buscar técnicos cercanos</button>
+          <div class="muted" *ngIf="ultimaUbicacionActualizada">
+            Última actualización: {{ ultimaUbicacionActualizada | date:'short' }}
+          </div>
         </div>
-        <div class="muted" style="margin-top: 0.5rem;">WebSocket: {{ trackingSocketConnected ? 'conectado' : 'desconectado' }}</div>
-        <div #trackingMap class="map-canvas" style="margin-top: 0.75rem;"></div>
-        <ul *ngIf="tecnicosCercanos.length" style="margin-top:0.75rem;">
-          <li *ngFor="let t of tecnicosCercanos" class="muted">
-            {{ t.nombre_completo }} - {{ t.distancia_km }} km - {{ t.disponible ? 'disponible' : 'ocupado' }}
-          </li>
-        </ul>
       </section>
 
-      <!-- Incidents list shown only as a separate section (not inside the Solicitud form) -->
-      <section class="panel" *ngIf="!isClient">
-        <h4>Incidentes</h4>
-        <div *ngIf="loading" class="muted">Cargando incidentes...</div>
-        <div *ngIf="!loading && incidents.length === 0" class="muted">No hay incidentes.</div>
-        <ul *ngIf="incidents.length > 0">
-          <li *ngFor="let it of incidents" style="margin:0.5rem 0; display:flex; justify-content:space-between; align-items:center">
-            <div>
-              <strong>{{ it.tipo || 'Incidente' }}</strong>
-              <div class="muted">{{ it.descripcion }}</div>
-              <div class="muted">Estado: {{ it.estado }} • Prioridad: {{ it.prioridad || 'N/A' }}</div>
-              <div class="muted">Destino: {{ it.latitud ?? 'N/A' }}, {{ it.longitud ?? 'N/A' }}</div>
-              <div class="muted">Técnico asignado: Ver asignación</div>
+      <!-- SecciÃ³n: Lista de incidentes -->
+      <section class="section incidents-list">
+        <div class="section-head">
+          <div>
+            <h3>Incidentes Pendientes</h3>
+            <p class="subtitle">{{ incidents.length }} solicitud(es) sin asignar</p>
+          </div>
+          <button class="btn btn-ghost" (click)="cargarIncidentes()" [disabled]="loading">
+            {{ loading ? 'Cargando...' : 'Actualizar' }}
+          </button>
+        </div>
+
+        <div *ngIf="loading" class="loading">Cargando incidentes...</div>
+        <div *ngIf="!loading && incidents.length === 0" class="empty">
+          <p>âœ“ No hay incidentes pendientes</p>
+        </div>
+
+        <div *ngIf="!loading && incidents.length > 0" class="incidents-grid">
+          <div *ngFor="let incidente of incidents" class="incident-card" [class.assigned]="incidente.estado !== 'pendiente'">
+            <!-- Header de la card -->
+            <div class="card-header">
+              <div class="tipo-prioridad">
+                <h4>{{ incidente.tipo }}</h4>
+                <span class="priority-badge" [style.background]="getPriorityColor(incidente.prioridad)">
+                  P{{ incidente.prioridad || '-' }}
+                </span>
+              </div>
+              <span class="estado-badge" [ngClass]="'estado-' + (incidente.estado || 'pendiente')">
+                {{ incidente.estado || 'pendiente' }}
+              </span>
             </div>
-            <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
-              <select [(ngModel)]="it.estado">
-                <option value="pendiente">pendiente</option>
-                <option value="en_proceso">en_proceso</option>
-                <option value="atendido">atendido</option>
-              </select>
-              <button class="btn" (click)="saveStatus(it)">Guardar</button>
-              <input [(ngModel)]="asignaciones[it.id]" placeholder="empleado_id" />
-              <button class="btn btn-ghost" (click)="assignTecnico(it)">Asignar técnico</button>
-              <button class="btn btn-ghost" (click)="openTracking(it)">Ver tracking</button>
-              <button class="btn btn-ghost" (click)="addDiagPrompt(it)">Añadir diagnóstico</button>
-              <button class="btn btn-ghost" (click)="addEvidPrompt(it)">Añadir evidencia</button>
+
+            <!-- Contenido de la card -->
+            <div class="card-content">
+              <p class="descripcion">{{ incidente.descripcion }}</p>
+
+              <!-- Grid de información -->
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="label">Vehículo</span>
+                  <span class="value">{{ incidente.vehiculo_id || 'N/A' }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="label">Ubicación</span>
+                  <span class="value coords">
+                    {{ incidente.latitud?.toFixed(4) || '-' }},
+                    {{ incidente.longitud?.toFixed(4) || '-' }}
+                  </span>
+                </div>
+                <div class="info-item">
+                  <span class="label">Fecha</span>
+                  <span class="value">{{ incidente.creado_en | date:'short' }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="label">ID</span>
+                  <span class="value">{{ incidente.id }}</span>
+                </div>
+              </div>
             </div>
-          </li>
-        </ul>
+
+            <!-- Botones de acción -->
+            <div class="card-actions">
+              <button class="btn btn-secondary" (click)="abrirMapa(incidente)">
+                📍 Ver en mapa
+              </button>
+              <button
+                class="btn btn-primary"
+                (click)="abrirModalAsignar(incidente)"
+                [disabled]="incidente.estado !== 'pendiente'"
+              >
+                👤 Asignar técnico
+              </button>
+              <button class="btn btn-ghost" (click)="verTracking(incidente)">
+                📊 Ver tracking
+              </button>
+            </div>
+          </div>
+        </div>
       </section>
 
-      <div *ngIf="message" class="muted" style="margin-top:1rem;">{{ message }}</div>
+      <!-- Modal: Asignar técnico -->
+      <div *ngIf="modalAsignarVisible" class="modal-overlay" (click)="cerrarModalAsignar()">
+        <div class="modal-content" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3>Asignar Técnico</h3>
+            <button class="btn-close" (click)="cerrarModalAsignar()">✕</button>
+          </div>
+
+          <div class="modal-body">
+            <div *ngIf="modalIncidentes">
+              <p class="incidente-info">
+                <strong>{{ modalIncidentes.tipo }}</strong> - {{ modalIncidentes.descripcion }}
+              </p>
+
+              <div *ngIf="cargandoTecnicos" class="loading">Cargando técnicos cercanos...</div>
+
+              <div *ngIf="!cargandoTecnicos && tecnicosCercanos.length === 0" class="empty-tecnico">
+                No hay técnicos disponibles cerca de esta ubicación
+              </div>
+
+              <div *ngIf="!cargandoTecnicos && tecnicosCercanos.length > 0" class="tecnicos-list">
+                <div *ngFor="let tecnico of tecnicosCercanos" class="tecnico-item">
+                  <div class="tecnico-info">
+                    <div class="tecnico-header">
+                      <strong>{{ tecnico.nombre_completo }}</strong>
+                      <span class="disponibilidad" [class.disponible]="tecnico.disponible">
+                        {{ tecnico.disponible ? '● Disponible' : '○ Ocupado' }}
+                      </span>
+                    </div>
+                    <div class="tecnico-details">
+                      <span>Distancia: <strong>{{ tecnico.distancia_km.toFixed(1) }} km</strong></span>
+                    </div>
+                  </div>
+                  <button
+                    class="btn btn-primary"
+                    (click)="confirmarAsignacion(tecnico)"
+                    [disabled]="asignando"
+                  >
+                    {{ asignando ? 'Asignando...' : 'Asignar' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn btn-ghost" (click)="cerrarModalAsignar()">Cancelar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mensaje -->
+      <div *ngIf="message" class="alert" [class.success]="messageType === 'success'" [class.error]="messageType === 'error'">
+        {{ message }}
+      </div>
     </div>
   `,
   styles: [
-    `.btn.active { background: var(--brand); color: #fff; border-color: rgba(59,130,246,0.9); }`,
-    `.muted { color: var(--muted); }`,
-    `.tiny { font-size: 0.85rem; }`,
-    `.panel { border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 0.75rem; }`,
-    `.form-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:0.5rem; }`,
-    `.input { width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); color: var(--text); border-radius: 14px; padding: 0.8rem 0.95rem; outline: none; }`,
-    `.input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18); }`,
-    `.input-lg { min-height: 48px; }`,
-    `.text-area { min-height: 180px; resize: vertical; }`,
-    `.input-file { padding: 0.7rem; }`,
-    `.request-layout { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 1rem; align-items: start; }`,
-    `.map-stack { display: grid; gap: 0.75rem; }`,
-    `.request-form-card { border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 1rem; background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)); }`,
-    `.stack-gap { display: grid; gap: 0.95rem; }`,
-    `.section-caption { display:flex; flex-direction: column; gap: 0.15rem; }`,
-    `.map-canvas { width: 100%; border-radius: 16px; border: 1px solid rgba(255,255,255,0.12); }`,
-    `.map-large { height: 420px; }`,
-    `.voice-controls { display:flex; align-items:center; gap:0.75rem; flex-wrap: wrap; margin-top: 0.55rem; }`,
-    `.evidence-box { border: 1px dashed rgba(255,255,255,0.18); border-radius: 16px; padding: 0.85rem; background: rgba(255,255,255,0.02); }`,
-    `.evidence-panel { display:grid; gap:0.6rem; margin-top: 0.75rem; }`,
-    `.incident-row { margin:0.5rem 0; display:flex; justify-content:space-between; align-items:center; gap:0.75rem; }`,
-    `@media (max-width: 980px) { .request-layout { grid-template-columns: 1fr; } .map-large { height: 340px; } }`,
+    `
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+      }
+
+      .header {
+        margin-bottom: 2rem;
+      }
+
+      .header h2 {
+        font-size: 1.8rem;
+        font-weight: 600;
+        margin: 0 0 0.5rem 0;
+      }
+
+      .subtitle {
+        color: var(--muted);
+        margin: 0;
+        font-size: 0.95rem;
+      }
+
+      .section {
+        background: linear-gradient(
+          135deg,
+          rgba(255, 255, 255, 0.05) 0%,
+          rgba(255, 255, 255, 0.02) 100%
+        );
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+      }
+
+      .section h3 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin: 0 0 1rem 0;
+      }
+
+      .tech-location-content {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .checkbox-group input {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+      }
+
+      .checkbox-group label {
+        cursor: pointer;
+        font-weight: 500;
+      }
+
+      .section-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
+        margin-bottom: 1rem;
+      }
+
+      .section-head > div {
+        flex: 1;
+      }
+
+      .section-head h3 {
+        margin: 0 0 0.25rem 0;
+      }
+
+      .loading,
+      .empty,
+      .empty-tecnico {
+        padding: 2rem;
+        text-align: center;
+        color: var(--muted);
+        font-weight: 500;
+      }
+
+      .incidents-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 1.25rem;
+      }
+
+      .incident-card {
+        background: linear-gradient(
+          135deg,
+          rgba(59, 130, 246, 0.08) 0%,
+          rgba(99, 102, 241, 0.05) 100%
+        );
+        border: 1px solid rgba(59, 130, 246, 0.2);
+        border-radius: 12px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        transition: all 0.2s ease;
+      }
+
+      .incident-card:hover {
+        border-color: rgba(59, 130, 246, 0.4);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+      }
+
+      .incident-card.assigned {
+        border-color: rgba(34, 197, 94, 0.2);
+        background: linear-gradient(
+          135deg,
+          rgba(34, 197, 94, 0.08) 0%,
+          rgba(34, 197, 94, 0.05) 100%
+        );
+      }
+
+      .card-header {
+        padding: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        gap: 0.75rem;
+      }
+
+      .tipo-prioridad {
+        flex: 1;
+      }
+
+      .tipo-prioridad h4 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1rem;
+        font-weight: 600;
+      }
+
+      .priority-badge {
+        display: inline-block;
+        padding: 0.35rem 0.6rem;
+        border-radius: 6px;
+        color: white;
+        font-size: 0.8rem;
+        font-weight: 600;
+      }
+
+      .estado-badge {
+        padding: 0.5rem 0.85rem;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        white-space: nowrap;
+        text-transform: uppercase;
+      }
+
+      .estado-pendiente {
+        background: rgba(249, 115, 22, 0.2);
+        color: #fb923c;
+      }
+
+      .estado-asignado {
+        background: rgba(59, 130, 246, 0.2);
+        color: #60a5fa;
+      }
+
+      .estado-en_proceso {
+        background: rgba(139, 92, 246, 0.2);
+        color: #c084fc;
+      }
+
+      .estado-atendido {
+        background: rgba(34, 197, 94, 0.2);
+        color: #86efac;
+      }
+
+      .card-content {
+        padding: 1rem;
+        flex: 1;
+      }
+
+      .descripcion {
+        margin: 0 0 1rem 0;
+        color: var(--text);
+        font-size: 0.95rem;
+        line-height: 1.5;
+      }
+
+      .info-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+      }
+
+      .info-item {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        font-size: 0.85rem;
+      }
+
+      .info-item .label {
+        color: var(--muted);
+        font-weight: 500;
+      }
+
+      .info-item .value {
+        color: var(--text);
+        font-weight: 500;
+      }
+
+      .coords {
+        font-family: monospace;
+        font-size: 0.8rem;
+      }
+
+      .card-actions {
+        display: flex;
+        gap: 0.5rem;
+        padding: 1rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        flex-wrap: wrap;
+      }
+
+      .btn {
+        padding: 0.6rem 1rem;
+        border: none;
+        border-radius: 8px;
+        font-weight: 500;
+        cursor: pointer;
+        font-size: 0.85rem;
+        transition: all 0.2s ease;
+        flex: 1;
+        min-width: 120px;
+      }
+
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .btn-primary {
+        background: var(--brand);
+        color: white;
+      }
+
+      .btn-primary:hover:not(:disabled) {
+        background: #2563eb;
+      }
+
+      .btn-secondary {
+        background: rgba(59, 130, 246, 0.15);
+        color: #60a5fa;
+        border: 1px solid rgba(59, 130, 246, 0.3);
+      }
+
+      .btn-secondary:hover:not(:disabled) {
+        background: rgba(59, 130, 246, 0.25);
+      }
+
+      .btn-ghost {
+        background: transparent;
+        color: var(--muted);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .btn-ghost:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.2);
+        color: var(--text);
+      }
+
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      }
+
+      .modal-content {
+        background: var(--bg);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        width: 90%;
+        max-width: 500px;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+      }
+
+      .modal-header {
+        padding: 1.5rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .modal-header h3 {
+        margin: 0;
+        font-size: 1.1rem;
+      }
+
+      .btn-close {
+        background: none;
+        border: none;
+        color: var(--muted);
+        font-size: 1.5rem;
+        cursor: pointer;
+        padding: 0;
+        width: 24px;
+        height: 24px;
+      }
+
+      .btn-close:hover {
+        color: var(--text);
+      }
+
+      .modal-body {
+        padding: 1.5rem;
+      }
+
+      .incidente-info {
+        margin: 0 0 1.5rem 0;
+        padding: 1rem;
+        background: rgba(59, 130, 246, 0.1);
+        border-left: 3px solid var(--brand);
+        border-radius: 6px;
+        font-size: 0.9rem;
+      }
+
+      .tecnicos-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .tecnico-item {
+        padding: 1rem;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .tecnico-info {
+        flex: 1;
+      }
+
+      .tecnico-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        gap: 0.5rem;
+      }
+
+      .tecnico-header strong {
+        font-weight: 600;
+      }
+
+      .disponibilidad {
+        font-size: 0.8rem;
+        color: var(--muted);
+        font-weight: 500;
+      }
+
+      .disponibilidad.disponible {
+        color: #86efac;
+      }
+
+      .tecnico-details {
+        display: flex;
+        gap: 1rem;
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+
+      .modal-footer {
+        padding: 1.5rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        gap: 0.5rem;
+      }
+
+      .alert {
+        padding: 1rem;
+        border-radius: 8px;
+        margin-top: 1rem;
+        font-weight: 500;
+      }
+
+      .alert.success {
+        background: rgba(34, 197, 94, 0.15);
+        color: #86efac;
+        border: 1px solid rgba(34, 197, 94, 0.3);
+      }
+
+      .alert.error {
+        background: rgba(239, 68, 68, 0.15);
+        color: #fca5a5;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+      }
+
+      @media (max-width: 768px) {
+        .incidents-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .card-actions {
+          flex-direction: column;
+        }
+
+        .btn {
+          min-width: auto;
+        }
+
+        .section-head {
+          flex-direction: column;
+        }
+      }
+    `,
   ],
 })
-export class IncidentesComponent implements OnInit, AfterViewInit, OnDestroy {
-  @ViewChild('reportMap') reportMapElement?: ElementRef<HTMLDivElement>;
-  @ViewChild('trackingMap') trackingMapElement?: ElementRef<HTMLDivElement>;
-
-  private L: any;
-  private reportMap: any;
-  private trackingMap: any;
-  private reportMarker: any;
-  private currentLocationMarker: any;
-  private trackingIncidentMarker: any;
-  private trackingTechMarker: any;
-  private voiceRecorder: MediaRecorder | null = null;
-  private voiceChunks: BlobPart[] = [];
-  private voiceStream: MediaStream | null = null;
-
-  private trackingSocket: WebSocket | null = null;
-  private trackingPingTimer: ReturnType<typeof setInterval> | null = null;
-  trackingSocketConnected = false;
-
-  watchPositionId: number | null = null;
-  currentLat: number | null = null;
-  currentLng: number | null = null;
-
+export class IncidentesComponent implements OnInit {
   incidents: IncidenteDto[] = [];
-  myVehicles: VehiculoDto[] = [];
-  selectedTracking: IncidenteTrackingDto | null = null;
   tecnicosCercanos: TecnicoCercanoDto[] = [];
-  asignaciones: Record<string, string> = {};
-  showEvidencePanel = false;
-  imageEvidenceFiles: File[] = [];
-  audioEvidenceFile: File | null = null;
-  recordingVoice = false;
-  voicePreviewUrl: string | null = null;
-  message = '';
-  miDisponible = true;
-  isClient = false;
-  clienteId: string | null = null;
-  showIncidentList = false;
-
-  createForm: {
-    vehiculo_id: string;
-    tipo: string;
-    descripcion: string;
-    prioridad: number | null;
-    latitud: number | null;
-    longitud: number | null;
-  } = {
-    vehiculo_id: '',
-    tipo: '',
-    descripcion: '',
-    prioridad: null,
-    latitud: null,
-    longitud: null,
-  };
 
   loading = false;
-  liveLocationEnabled = true;
+  cargandoTecnicos = false;
+  asignando = false;
+  updatingLocation = false;
+
+  miDisponible = true;
+  ultimaUbicacionActualizada: Date | null = null;
+
+  message = '';
+  messageType: 'success' | 'error' = 'success';
+
+  modalAsignarVisible = false;
+  modalIncidentes: IncidenteDto | null = null;
 
   constructor(
     private api: IncidenteApiService,
     private auth: AuthService,
-    private clienteApi: ClienteApiService,
-    private router: Router,
   ) {}
 
   ngOnInit(): void {
-    this.isClient = this.auth.isClient;
-    this.clienteId = this.auth.currentUser?.cliente_id || null;
-    this.showIncidentList = this.isClient && this.router.url.includes('/incidentes/lista');
-    if (this.isClient) {
-      this.loadMyVehicles();
-    }
-    this.load();
+    this.cargarIncidentes();
   }
 
-  async ngAfterViewInit(): Promise<void> {
-    await this.initLeaflet();
-    this.initReportMap();
-    this.initTrackingMap();
-  }
-
-  ngOnDestroy(): void {
-    this.stopRealtimeLocation();
-    this.disconnectTrackingSocket();
-    this.stopClientLiveLocation();
-    if (this.voicePreviewUrl) {
-      URL.revokeObjectURL(this.voicePreviewUrl);
-    }
-  }
-
-  private async initLeaflet(): Promise<void> {
-    if (this.L) {
-      return;
-    }
-
-    const leaflet = await import('leaflet');
-    this.L = leaflet;
-    this.L.Icon.Default.mergeOptions({
-      iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-    });
-  }
-
-  private initReportMap(): void {
-    if (!this.reportMapElement || this.reportMap) {
-      return;
-    }
-
-    this.reportMap = this.L.map(this.reportMapElement.nativeElement).setView([-17.7833, -63.1821], 13);
-    this.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap',
-    }).addTo(this.reportMap);
-
-    this.reportMap.on('click', (e: any) => {
-      const lat = Number(e.latlng.lat.toFixed(6));
-      const lng = Number(e.latlng.lng.toFixed(6));
-      this.setIncidentLocation(lat, lng);
-    });
-  }
-
-  private initTrackingMap(): void {
-    if (!this.trackingMapElement || this.trackingMap) {
-      return;
-    }
-
-    this.trackingMap = this.L.map(this.trackingMapElement.nativeElement).setView([-17.7833, -63.1821], 13);
-    this.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap',
-    }).addTo(this.trackingMap);
-  }
-
-  private setIncidentLocation(lat: number, lng: number): void {
-    this.createForm.latitud = lat;
-    this.createForm.longitud = lng;
-
-    if (!this.reportMap) {
-      return;
-    }
-
-    if (!this.reportMarker) {
-      this.reportMarker = this.L.marker([lat, lng]).addTo(this.reportMap);
-    } else {
-      this.reportMarker.setLatLng([lat, lng]);
-    }
-    this.reportMap.setView([lat, lng], 15);
-  }
-
-  private setCurrentLocation(lat: number, lng: number): void {
-    this.currentLat = lat;
-    this.currentLng = lng;
-    this.setIncidentLocation(lat, lng);
-
-    if (!this.reportMap) {
-      return;
-    }
-
-    if (!this.currentLocationMarker) {
-      this.currentLocationMarker = this.L.circleMarker([lat, lng], {
-        radius: 8,
-        color: this.isClient ? '#ef4444' : '#22c55e',
-        fillColor: this.isClient ? '#ef4444' : '#22c55e',
-        fillOpacity: 0.8,
-      }).addTo(this.reportMap);
-    } else {
-      this.currentLocationMarker.setLatLng([lat, lng]);
-      this.currentLocationMarker.setStyle({
-        color: this.isClient ? '#ef4444' : '#22c55e',
-        fillColor: this.isClient ? '#ef4444' : '#22c55e',
-      });
-    }
-  }
-
-  private startClientLiveLocation(): void {
-    if (!navigator.geolocation || this.watchPositionId != null) {
-      return;
-    }
-
-    this.watchPositionId = navigator.geolocation.watchPosition(
-      (position) => {
-        const lat = Number(position.coords.latitude.toFixed(6));
-        const lng = Number(position.coords.longitude.toFixed(6));
-        this.setCurrentLocation(lat, lng);
-      },
-      () => {
-        this.message = 'No se pudo obtener tu ubicación en tiempo real';
-      },
-      {
-        enableHighAccuracy: true,
-        maximumAge: 4000,
-        timeout: 12000,
-      },
-    );
-  }
-
-  private stopClientLiveLocation(): void {
-    this.stopRealtimeLocation();
-  }
-
-  private updateTrackingMap(): void {
-    if (!this.trackingMap && this.trackingMapElement) {
-      this.initTrackingMap();
-    }
-
-    if (!this.selectedTracking || !this.trackingMap) {
-      return;
-    }
-
-    const t = this.selectedTracking;
-    const incidentLat = t.latitud_incidente;
-    const incidentLng = t.longitud_incidente;
-    const techLat = t.tecnico_latitud;
-    const techLng = t.tecnico_longitud;
-
-    if (incidentLat != null && incidentLng != null) {
-      if (!this.trackingIncidentMarker) {
-        this.trackingIncidentMarker = this.L.marker([incidentLat, incidentLng]).addTo(this.trackingMap);
-      } else {
-        this.trackingIncidentMarker.setLatLng([incidentLat, incidentLng]);
-      }
-    }
-
-    if (techLat != null && techLng != null) {
-      if (!this.trackingTechMarker) {
-        this.trackingTechMarker = this.L.circleMarker([techLat, techLng], {
-          radius: 8,
-          color: '#3b82f6',
-          fillColor: '#3b82f6',
-          fillOpacity: 0.9,
-        }).addTo(this.trackingMap);
-      } else {
-        this.trackingTechMarker.setLatLng([techLat, techLng]);
-      }
-    }
-
-    const points: [number, number][] = [];
-    if (incidentLat != null && incidentLng != null) points.push([incidentLat, incidentLng]);
-    if (techLat != null && techLng != null) points.push([techLat, techLng]);
-
-    if (points.length === 1) {
-      this.trackingMap.setView(points[0], 15);
-    } else if (points.length > 1) {
-      this.trackingMap.fitBounds(points, { padding: [30, 30] });
-    }
-  }
-
-  private connectTrackingSocket(incidenteId: string): void {
-    this.disconnectTrackingSocket();
-    const url = this.api.getTrackingWebSocketUrl(incidenteId);
-    this.trackingSocket = new WebSocket(url);
-
-    this.trackingSocket.onopen = () => {
-      this.trackingSocketConnected = true;
-      this.trackingPingTimer = setInterval(() => {
-        if (this.trackingSocket?.readyState === WebSocket.OPEN) {
-          this.trackingSocket.send('ping');
-        }
-      }, 15000);
-    };
-
-    this.trackingSocket.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data);
-        if (message?.tracking) {
-          this.selectedTracking = message.tracking as IncidenteTrackingDto;
-          this.updateTrackingMap();
-        }
-      } catch {
-        // Ignore malformed WS payloads.
-      }
-    };
-
-    this.trackingSocket.onclose = () => {
-      this.trackingSocketConnected = false;
-      if (this.trackingPingTimer) {
-        clearInterval(this.trackingPingTimer);
-        this.trackingPingTimer = null;
-      }
-    };
-  }
-
-  private disconnectTrackingSocket(): void {
-    if (this.trackingPingTimer) {
-      clearInterval(this.trackingPingTimer);
-      this.trackingPingTimer = null;
-    }
-    if (this.trackingSocket) {
-      this.trackingSocket.close();
-      this.trackingSocket = null;
-    }
-    this.trackingSocketConnected = false;
-  }
-
-  load() {
+  cargarIncidentes(): void {
     this.loading = true;
     this.api.list().subscribe({
-      next: (rows) => {
-        const all = rows || [];
-        if (this.isClient) {
-          this.incidents = this.clienteId ? all.filter((item) => item.cliente_id === this.clienteId) : [];
-        } else {
-          this.incidents = all;
-        }
+      next: (data) => {
+        this.incidents = data;
         this.loading = false;
       },
-      error: () => (this.loading = false),
-    });
-  }
-
-  loadMyVehicles() {
-    this.clienteApi.listMyVehiculos().subscribe({
-      next: (rows) => {
-        this.myVehicles = rows || [];
-      },
-      error: () => {
-        this.message = 'No se pudieron cargar tus vehículos';
+      error: (err) => {
+        this.mostrarMensaje('Error al cargar incidentes', 'error');
+        this.loading = false;
       },
     });
   }
 
-  async toggleVoiceRecording() {
-    if (this.recordingVoice) {
-      await this.stopVoiceRecording();
-      return;
-    }
-
-    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
-      this.message = 'Tu navegador no permite grabar audio';
-      return;
-    }
-
-    try {
-      this.voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      this.voiceChunks = [];
-      this.voiceRecorder = new MediaRecorder(this.voiceStream);
-      this.recordingVoice = true;
-      this.voiceRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          this.voiceChunks.push(event.data);
-        }
-      };
-      this.voiceRecorder.onstop = () => {
-        const blob = new Blob(this.voiceChunks, { type: 'audio/webm' });
-        if (this.voicePreviewUrl) {
-          URL.revokeObjectURL(this.voicePreviewUrl);
-        }
-        this.voicePreviewUrl = URL.createObjectURL(blob);
-        this.audioEvidenceFile = new File([blob], `voz-${Date.now()}.webm`, { type: blob.type });
-        this.recordingVoice = false;
-        this.voiceStream?.getTracks().forEach((track) => track.stop());
-        this.voiceStream = null;
-      };
-      this.voiceRecorder.start();
-    } catch {
-      this.message = 'No se pudo iniciar la grabación de voz';
-      this.recordingVoice = false;
-      this.voiceStream?.getTracks().forEach((track) => track.stop());
-      this.voiceStream = null;
-    }
-  }
-
-  private stopVoiceRecording(): Promise<void> {
-    return new Promise((resolve) => {
-      if (!this.voiceRecorder || this.voiceRecorder.state === 'inactive') {
-        this.recordingVoice = false;
-        resolve();
-        return;
-      }
-
-      this.voiceRecorder.addEventListener('stop', () => resolve(), { once: true });
-      this.voiceRecorder.stop();
-    });
-  }
-
-  onImageEvidenceSelected(event: Event) {
-    const input = event.target as HTMLInputElement;
-    const files = input.files ? Array.from(input.files) : [];
-    this.imageEvidenceFiles = files;
-  }
-
-  onAudioEvidenceSelected(event: Event) {
-    const input = event.target as HTMLInputElement;
-    const file = input.files && input.files.length > 0 ? input.files[0] : null;
-    this.audioEvidenceFile = file;
-  }
-
-  saveStatus(it: IncidenteDto) {
-    this.api.update(it.id, { estado: it.estado }).subscribe({ next: () => this.load() });
-  }
-
-  createIncident() {
-    if (this.isClient) {
-      const hasText = !!this.createForm.descripcion?.trim();
-      const hasAudio = !!this.audioEvidenceFile;
-      if (!this.createForm.vehiculo_id || !this.createForm.tipo || !this.createForm.latitud || !this.createForm.longitud || (!hasText && !hasAudio)) {
-        this.message = 'Debes completar vehículo, tipo, mapa y descripción en texto o audio';
-        return;
-      }
-    }
-
-    this.api.create({
-      vehiculo_id: this.createForm.vehiculo_id || undefined,
-      tipo: this.createForm.tipo || undefined,
-      descripcion: this.createForm.descripcion || (this.isClient && this.audioEvidenceFile ? 'Descripción adjunta en audio.' : undefined),
-      prioridad: this.isClient ? undefined : (this.createForm.prioridad ?? undefined),
-      latitud: this.createForm.latitud ?? undefined,
-      longitud: this.createForm.longitud ?? undefined,
-    }).subscribe({
-      next: (created) => {
-        if (this.isClient) {
-          this.uploadClientEvidences(created.id);
-          return;
-        }
-        this.message = 'Incidente creado correctamente';
-        this.load();
-      },
-      error: () => {
-        this.message = 'No se pudo crear el incidente';
-      },
-    });
-  }
-
-  private uploadClientEvidences(incidenteId: string) {
-    const uploads = [
-      ...this.imageEvidenceFiles.map((file) => this.api.uploadEvidenciaArchivo(incidenteId, file, 'foto')),
-      ...(this.audioEvidenceFile ? [this.api.uploadEvidenciaArchivo(incidenteId, this.audioEvidenceFile, 'audio')] : []),
-    ];
-
-    if (uploads.length === 0) {
-      this.message = 'Solicitud de auxilio enviada correctamente';
-      this.resetClientRequestForm();
-      this.load();
-      return;
-    }
-
-    forkJoin(uploads).subscribe({
-      next: () => {
-        this.message = 'Solicitud de auxilio y evidencias enviadas correctamente';
-        this.resetClientRequestForm();
-        this.load();
-      },
-      error: () => {
-        this.message = 'La solicitud se creó, pero hubo un error al subir evidencias';
-        this.load();
-      },
-    });
-  }
-
-  private resetClientRequestForm() {
-    this.createForm = {
-      vehiculo_id: '',
-      tipo: '',
-      descripcion: '',
-      prioridad: null,
-      latitud: null,
-      longitud: null,
-    };
-    this.imageEvidenceFiles = [];
-    this.audioEvidenceFile = null;
-    this.showEvidencePanel = false;
-    if (this.voicePreviewUrl) {
-      URL.revokeObjectURL(this.voicePreviewUrl);
-      this.voicePreviewUrl = null;
-    }
-  }
-
-  assignTecnico(it: IncidenteDto) {
-    const empleadoId = this.asignaciones[it.id]?.trim();
-    if (!empleadoId) {
-      this.message = 'Debes ingresar el empleado_id para asignar';
-      return;
-    }
-
-    this.api.assignTecnico(it.id, { empleado_id: empleadoId }).subscribe({
-      next: () => {
-        this.message = 'Técnico asignado';
-        this.load();
-      },
-      error: () => {
-        this.message = 'No se pudo asignar el técnico';
-      },
-    });
-  }
-
-  openTracking(it: IncidenteDto) {
-    this.api.getTracking(it.id).subscribe({
-      next: (tracking) => {
-        this.selectedTracking = tracking;
-        this.tecnicosCercanos = [];
-        setTimeout(() => this.updateTrackingMap(), 0);
-        this.connectTrackingSocket(it.id);
-      },
-      error: () => {
-        this.message = 'No se pudo obtener tracking';
-      },
-    });
-  }
-
-  refreshTracking() {
-    if (!this.selectedTracking?.incidente_id) {
-      return;
-    }
-    this.api.getTracking(this.selectedTracking.incidente_id).subscribe({
-      next: (tracking) => {
-        this.selectedTracking = tracking;
-        setTimeout(() => this.updateTrackingMap(), 0);
-      },
-      error: () => {
-        this.message = 'No se pudo refrescar el tracking';
-      },
-    });
-  }
-
-  toggleTrackingSocket() {
-    if (!this.selectedTracking?.incidente_id) {
-      return;
-    }
-    if (this.trackingSocketConnected) {
-      this.disconnectTrackingSocket();
-      return;
-    }
-    this.connectTrackingSocket(this.selectedTracking.incidente_id);
-  }
-
-  buscarTecnicosCercanosTracking() {
-    const tracking = this.selectedTracking;
-    if (!tracking || tracking.latitud_incidente == null || tracking.longitud_incidente == null) {
-      this.message = 'El incidente no tiene latitud/longitud para búsqueda';
-      return;
-    }
-
-    this.api.listTecnicosCercanos(tracking.latitud_incidente, tracking.longitud_incidente, 10).subscribe({
-      next: (rows) => {
-        this.tecnicosCercanos = rows;
-      },
-      error: () => {
-        this.message = 'No se pudieron cargar técnicos cercanos';
-      },
-    });
-  }
-
-  useBrowserLocationForIncident() {
+  actualizarMiUbicacion(): void {
     if (!navigator.geolocation) {
-      this.message = 'Geolocalización no disponible en este navegador';
+      this.mostrarMensaje('GeolocalizaciÃ³n no disponible', 'error');
       return;
     }
 
+    this.updatingLocation = true;
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        this.setCurrentLocation(
-          Number(position.coords.latitude.toFixed(6)),
-          Number(position.coords.longitude.toFixed(6)),
-        );
-      },
-      () => {
-        this.message = 'No se pudo obtener la ubicación actual';
-      },
-    );
-  }
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
 
-  toggleRealtimeLocation() {
-    if (this.watchPositionId == null) {
-      this.startRealtimeLocation();
-      return;
-    }
-    this.stopRealtimeLocation();
-  }
-
-  private startRealtimeLocation() {
-    if (!navigator.geolocation) {
-      this.message = 'Geolocalización no disponible en este navegador';
-      return;
-    }
-
-    this.watchPositionId = navigator.geolocation.watchPosition(
-      (position) => {
-        this.setCurrentLocation(
-          Number(position.coords.latitude.toFixed(6)),
-          Number(position.coords.longitude.toFixed(6)),
-        );
-      },
-      () => {
-        this.message = 'No se pudo iniciar ubicación en tiempo real';
-      },
-      {
-        enableHighAccuracy: true,
-        maximumAge: 5000,
-        timeout: 12000,
-      },
-    );
-  }
-
-  private stopRealtimeLocation() {
-    if (this.watchPositionId != null) {
-      navigator.geolocation.clearWatch(this.watchPositionId);
-      this.watchPositionId = null;
-    }
-  }
-
-  actualizarMiUbicacion() {
-    if (!navigator.geolocation) {
-      this.message = 'Geolocalización no disponible en este navegador';
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        this.api.updateMiUbicacion({
-          latitud: Number(position.coords.latitude.toFixed(6)),
-          longitud: Number(position.coords.longitude.toFixed(6)),
+        const payload = {
+          latitud: lat,
+          longitud: lon,
           disponible: this.miDisponible,
-        }).subscribe({
+        };
+
+        this.api.updateMiUbicacion(payload).subscribe({
           next: () => {
-            this.message = 'Ubicación actualizada';
+            this.ultimaUbicacionActualizada = new Date();
+            this.mostrarMensaje('UbicaciÃ³n actualizada âœ“', 'success');
+            this.updatingLocation = false;
           },
           error: () => {
-            this.message = 'No se pudo actualizar tu ubicación';
+            this.mostrarMensaje('Error al actualizar ubicaciÃ³n', 'error');
+            this.updatingLocation = false;
           },
         });
       },
       () => {
-        this.message = 'No se pudo obtener la ubicación actual';
+        this.mostrarMensaje('No se pudo obtener tu ubicaciÃ³n', 'error');
+        this.updatingLocation = false;
       },
     );
   }
 
-  addDiagPrompt(it: IncidenteDto) {
-    const resumen = prompt('Resumen corto del diagnóstico');
-    const clas = parseInt(prompt('Clasificación (número)') || '') || null;
-    const prioridad = parseInt(prompt('Prioridad (número)') || '') || null;
-    this.api.addDiagnostico(it.id, { clasificacion: clas, resumen, prioridad }).subscribe({ next: () => this.load() });
+  abrirModalAsignar(incidente: IncidenteDto): void {
+    if (!incidente.latitud || !incidente.longitud) {
+      this.mostrarMensaje('El incidente no tiene ubicaciÃ³n', 'error');
+      return;
+    }
+
+    this.modalIncidentes = incidente;
+    this.modalAsignarVisible = true;
+    this.cargarTecnicosCercanos(incidente);
   }
 
-  addEvidPrompt(it: IncidenteDto) {
-    const url = prompt('URL de la evidencia (imagen/audio)');
-    if (!url) return;
-    this.api.addEvidencia(it.id, 'foto', url).subscribe({ next: () => this.load() });
+  cargarTecnicosCercanos(incidente: IncidenteDto): void {
+    if (!incidente.latitud || !incidente.longitud) return;
+
+    this.cargandoTecnicos = true;
+    this.api.listTecnicosCercanos(incidente.latitud, incidente.longitud).subscribe({
+      next: (data) => {
+        this.tecnicosCercanos = data;
+        this.cargandoTecnicos = false;
+      },
+      error: () => {
+        this.mostrarMensaje('Error al cargar tÃ©cnicos', 'error');
+        this.cargandoTecnicos = false;
+      },
+    });
+  }
+
+  confirmarAsignacion(tecnico: any): void {
+    if (!this.modalIncidentes) return;
+
+    this.asignando = true;
+    const payload: AsignarTecnicoRequest = {
+      empleado_id: tecnico.empleado_id,
+    };
+
+    this.api.assignTecnico(this.modalIncidentes.id, payload).subscribe({
+      next: () => {
+        this.mostrarMensaje(
+          `TÃ©cnico ${tecnico.nombre_completo} asignado âœ“`,
+          'success',
+        );
+        this.cerrarModalAsignar();
+        this.cargarIncidentes();
+        this.asignando = false;
+      },
+      error: () => {
+        this.mostrarMensaje('Error al asignar tÃ©cnico', 'error');
+        this.asignando = false;
+      },
+    });
+  }
+
+  cerrarModalAsignar(): void {
+    this.modalAsignarVisible = false;
+    this.modalIncidentes = null;
+    this.tecnicosCercanos = [];
+  }
+
+  abrirMapa(incidente: IncidenteDto): void {
+    if (!incidente.latitud || !incidente.longitud) return;
+    const url = `https://maps.google.com/?q=${incidente.latitud},${incidente.longitud}`;
+    window.open(url, '_blank');
+  }
+
+  verTracking(incidente: IncidenteDto): void {
+    // Navegar a la pantalla de tracking
+    window.location.href = `/tracking/${incidente.id}`;
+  }
+
+  getPriorityColor(prioridad?: number): string {
+    if (!prioridad) return '#6b7280';
+    if (prioridad <= 2) return '#22c55e'; // Verde - baja
+    if (prioridad <= 3) return '#f59e0b'; // Naranja - media
+    return '#ef4444'; // Rojo - alta
+  }
+
+  private mostrarMensaje(msg: string, tipo: 'success' | 'error'): void {
+    this.message = msg;
+    this.messageType = tipo;
+    setTimeout(() => {
+      this.message = '';
+    }, 3000);
   }
 }

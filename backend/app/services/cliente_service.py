@@ -14,8 +14,8 @@ from app.schemas.cliente import ClienteCreate, ClienteUpdate
 _sms_codes: dict[str, str] = {}
 
 
-def list_clientes(db: Session) -> list[Cliente]:
-    return db.execute(select(Cliente)).scalars().all()
+def list_clientes(db: Session, skip: int = 0, limit: int = 50) -> list[Cliente]:
+    return db.execute(select(Cliente).offset(skip).limit(limit)).scalars().all()
 
 
 def create_cliente(db: Session, payload: ClienteCreate) -> Cliente:

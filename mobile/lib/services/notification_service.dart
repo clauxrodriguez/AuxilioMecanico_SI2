@@ -11,33 +11,57 @@ class NotificationService {
     BuildContext context,
     Function(String?) onIncidentNotification,
   ) {
+    print(
+      '[NotificationService] 🔄 Inicializando listeners de notificaciones...',
+    );
+
     // Escuchar mensajes cuando la app está en foreground
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      print(
+        '[NotificationService] 📬 FOREGROUND: Mensaje recibido mientras app está abierta',
+      );
       _handleForegroundMessage(context, message, onIncidentNotification);
     });
 
     // Escuchar cuando se abre la app desde una notificación
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      print(
+        '[NotificationService] 📱 APP OPENED: Usuario abrió app desde notificación',
+      );
       _handleMessageOpenedApp(context, message, onIncidentNotification);
     });
+
+    print('[NotificationService] ✅ Listeners inicializados correctamente');
   }
 
   /// Obtener FCM token
   static Future<String?> getToken() async {
     try {
       final token = await _firebaseMessaging.getToken();
-      print('[NotificationService] FCM Token: $token');
+      if (token != null) {
+        print('[NotificationService] FCM Token obtenido exitosamente');
+        print('[NotificationService]  Token: ${token.substring(0, 50)}...');
+      } else {
+        print('[NotificationService]  No se obtuvo FCM token (null)');
+      }
       return token;
     } catch (e) {
-      print('[NotificationService] Error obteniendo FCM token: $e');
+      print('[NotificationService]  Error obteniendo FCM token: $e');
       return null;
     }
   }
 
   /// Manejador para mensajes en background
   static Future<void> handleBackgroundMessage(RemoteMessage message) async {
-    print('[NotificationService] Background message: ${message.messageId}');
-    print('[NotificationService] Data: ${message.data}');
+    print(
+      '[NotificationService] 🌙 BACKGROUND: Mensaje recibido en background',
+    );
+    print('[NotificationService] 📋 Message ID: ${message.messageId}');
+    print('[NotificationService] 📨 Título: ${message.notification?.title}');
+    print('[NotificationService] 📝 Body: ${message.notification?.body}');
+    if (message.data.isNotEmpty) {
+      print('[NotificationService] 📦 Data: ${message.data}');
+    }
   }
 
   /// Manejador para mensajes en foreground
@@ -46,15 +70,21 @@ class NotificationService {
     RemoteMessage message,
     Function(String?) onIncidentNotification,
   ) {
-    print('[NotificationService] Foreground message: ${message.messageId}');
-    print('[NotificationService] Title: ${message.notification?.title}');
-    print('[NotificationService] Body: ${message.notification?.body}');
-    print('[NotificationService] Data: ${message.data}');
+    print('[NotificationService] 📨 FOREGROUND: Procesando mensaje');
+    print('[NotificationService] 📋 Message ID: ${message.messageId}');
+    print('[NotificationService] 📨 Título: ${message.notification?.title}');
+    print('[NotificationService] 📝 Body: ${message.notification?.body}');
+    if (message.data.isNotEmpty) {
+      print('[NotificationService] 📦 Data: ${message.data}');
+    }
 
     // Extraer incidente_id si viene en los datos
     final incidentId = message.data['incidente_id'];
     if (incidentId != null) {
+      print('[NotificationService] ✅ Incidente detectado: $incidentId');
       onIncidentNotification(incidentId);
+    } else {
+      print('[NotificationService] ⚠️ No hay incidente_id en los datos');
     }
   }
 
@@ -64,15 +94,21 @@ class NotificationService {
     RemoteMessage message,
     Function(String?) onIncidentNotification,
   ) {
-    print('[NotificationService] Message opened app: ${message.messageId}');
-    print('[NotificationService] Data: ${message.data}');
+    print('[NotificationService] 📱 APP OPENED: Procesando mensaje');
+    print('[NotificationService] 📋 Message ID: ${message.messageId}');
+    if (message.data.isNotEmpty) {
+      print('[NotificationService] 📦 Data: ${message.data}');
+    }
 
     // Extraer incidente_id y navegar
     final incidentId = message.data['incidente_id'];
     if (incidentId != null) {
+      print('[NotificationService] ✅ Navegando a incidente: $incidentId');
       onIncidentNotification(incidentId);
       // Navegar a tracking o historial según el incidente
       _navigateToIncident(context, incidentId);
+    } else {
+      print('[NotificationService] ⚠️ No hay incidente_id para navegar');
     }
   }
 

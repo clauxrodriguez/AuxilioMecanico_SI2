@@ -12,34 +12,49 @@ import { AuthService } from '../../../services/auth/auth.service';
   template: `
     <section class="activate-wrap">
       <article class="card activate-card">
-        <h1>Activar cuenta de empleado</h1>
-        <p class="muted">Crea tu usuario y contrasena para habilitar tu acceso.</p>
+        <div class="brand-icon">&#128295;</div>
+        <h1 class="title">Activar cuenta</h1>
+        <p class="muted sub">Elige tu usuario y contrasena para acceder a la app movil de Auxilio Mecanico.</p>
 
-        <p class="error" *ngIf="!token">Invitacion invalida: falta el token en el enlace.</p>
+        <div class="alert-error" *ngIf="!token">
+          Enlace de invitacion invalido o expirado. Contacta a tu administrador.
+        </div>
 
-        <form *ngIf="token" [formGroup]="form" class="form-grid" (ngSubmit)="submit()">
+        <form *ngIf="token" [formGroup]="form" class="act-grid" (ngSubmit)="submit()">
           <div>
-            <label class="label">Usuario</label>
-            <input class="input" formControlName="username" autocomplete="username" />
+            <label class="label">Nombre de usuario <span class="req">*</span></label>
+            <input
+              class="input"
+              formControlName="username"
+              autocomplete="username"
+              placeholder="Ej: juan.perez"
+            />
+            <small class="hint">Este sera tu usuario para ingresar a la app movil.</small>
+            <small class="field-error" *ngIf="form.get('username')?.invalid && form.get('username')?.touched">
+              Ingresa un nombre de usuario
+            </small>
           </div>
 
           <div>
-            <label class="label">Contrasena</label>
-            <input class="input" type="password" formControlName="password" autocomplete="new-password" />
+            <label class="label">Contrasena <span class="req">*</span></label>
+            <input class="input" type="password" formControlName="password" autocomplete="new-password" placeholder="Minimo 6 caracteres" />
           </div>
 
           <div>
-            <label class="label">Confirmar contrasena</label>
-            <input class="input" type="password" formControlName="confirmPassword" autocomplete="new-password" />
+            <label class="label">Confirmar contrasena <span class="req">*</span></label>
+            <input class="input" type="password" formControlName="confirmPassword" autocomplete="new-password" placeholder="Repite la contrasena" />
+            <small class="field-error" *ngIf="passwordMismatch">Las contrasenas no coinciden</small>
           </div>
 
-          <div class="actions">
-            <button class="btn btn-primary" [disabled]="loading || form.invalid">{{ loading ? 'Activando...' : 'Activar cuenta' }}</button>
+          <div class="alert-error" *ngIf="errorMsg">{{ errorMsg }}</div>
+
+          <div class="act-actions">
+            <button class="btn btn-primary" style="flex:1" [disabled]="loading || form.invalid">
+              {{ loading ? 'Activando...' : 'Activar mi cuenta' }}
+            </button>
             <a class="btn btn-ghost" routerLink="/login">Ir a login</a>
           </div>
         </form>
-
-        <p class="error" *ngIf="errorMsg">{{ errorMsg }}</p>
       </article>
     </section>
   `,
@@ -50,25 +65,74 @@ import { AuthService } from '../../../services/auth/auth.service';
         display: grid;
         place-items: center;
         padding: 1rem;
+        background:
+          radial-gradient(circle at 20% 10%, #d9ecf7 0, transparent 35%),
+          radial-gradient(circle at 80% 80%, #d8f3ea 0, transparent 35%),
+          #f2f5f7;
       }
 
       .activate-card {
-        width: min(520px, 95vw);
-        padding: 1.4rem;
+        width: min(480px, 95vw);
+        padding: 2rem 1.8rem;
+        text-align: center;
       }
 
-      .muted {
+      .brand-icon {
+        font-size: 2.5rem;
+        margin-bottom: 0.5rem;
+      }
+
+      .title {
+        margin: 0 0 0.4rem;
+        font-size: 1.5rem;
+      }
+
+      .sub {
         color: var(--muted);
+        margin-bottom: 1.5rem;
+        font-size: 0.9rem;
       }
 
-      .actions {
-        margin-top: 1rem;
+      .act-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        text-align: left;
+      }
+
+      .req { color: var(--danger); }
+
+      .hint {
+        display: block;
+        font-size: 0.78rem;
+        color: var(--muted);
+        margin-top: 0.2rem;
+      }
+
+      .field-error {
+        display: block;
+        font-size: 0.8rem;
+        color: var(--danger);
+        margin-top: 0.2rem;
+      }
+
+      .alert-error {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: var(--danger);
+        border-radius: 8px;
+        padding: 0.6rem 0.9rem;
+        font-size: 0.9rem;
+      }
+
+      .act-actions {
         display: flex;
         gap: 0.6rem;
         flex-wrap: wrap;
+        margin-top: 0.4rem;
       }
 
-      .actions .btn {
+      .act-actions .btn {
         text-decoration: none;
         display: inline-flex;
         align-items: center;
@@ -94,6 +158,11 @@ export class ActivateInviteComponent implements OnInit {
     private readonly route: ActivatedRoute,
     private readonly router: Router,
   ) {}
+
+  get passwordMismatch(): boolean {
+    const raw = this.form.getRawValue();
+    return !!raw.confirmPassword && raw.password !== raw.confirmPassword;
+  }
 
   ngOnInit(): void {
     this.token = this.route.snapshot.queryParamMap.get('token');

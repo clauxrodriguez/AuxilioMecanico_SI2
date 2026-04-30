@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from decimal import Decimal
@@ -27,22 +27,24 @@ def crear_pago_asignacion(asignacion_id: str, payload: PagoCreate, user=Depends(
 
 
 @router.get("/api/pagos/", response_model=list[PagoOut])
-def pagos_list(user=Depends(get_current_user), db: Session = Depends(get_db)):
+def pagos_list(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     empleado = resolve_employee(db, user)
     if empleado:
         empresa_id = resolve_tenant_empresa_id(user, empleado)
-        rows = list_pagos(db, empresa_id=empresa_id)
-        return rows
+        return list_pagos(db, empresa_id=empresa_id, skip=skip, limit=limit)
 
-    # try client
     stmt = select(Cliente).where(Cliente.usuario_id == user.id)
     cliente = db.execute(stmt).scalars().first()
     if cliente:
-        rows = list_pagos(db, empresa_id=None)
-        # filter by cliente_id
-        return [p for p in rows if p.cliente_id == cliente.id]
+        rows = list_pagos(db, empresa_id=None, skip=0, limit=1000)
+        filtered = [p for p in rows if p.cliente_id == cliente.id]
+        return filtered[skip: skip + limit]
 
-    # fallback: return empty
     return []
 
 

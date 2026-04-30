@@ -21,7 +21,15 @@ import 'services/notification_service.dart';
 
 /// Manejador de mensajes en background
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(
+    options: const FirebaseOptions(
+      apiKey: "AIzaSyBc3WPP5f6T4FScC5fr4s0rcgBixdcB4kw",
+      appId: "1:314510612181:android:e4a4b279854e119affb45c",
+      messagingSenderId: "314510612181",
+      projectId: "auxiliomecanico-f0789",
+      storageBucket: "auxiliomecanico-f0789.firebasestorage.app",
+    ),
+  );
   await NotificationService.handleBackgroundMessage(message);
 }
 

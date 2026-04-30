@@ -36,8 +36,10 @@ class Settings(BaseSettings):
     cloudinary_api_key: str | None = None
     cloudinary_api_secret: str | None = None
     openai_api_key: str | None = None
-    firebase_credentials_path: str | None = None
-    FIREBASE_CREDENTIALS_PATH: str | None = None
+    
+    # Firebase configuration - use either JSON string or file path (prefer JSON string for security)
+    firebase_credentials_json: str | None = None  # JSON string with service account
+    firebase_credentials_path: str | None = None  # Legacy: path to service account file
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

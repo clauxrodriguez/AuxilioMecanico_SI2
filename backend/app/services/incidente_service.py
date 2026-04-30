@@ -25,9 +25,10 @@ def _distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return 2 * radius_km * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
-def list_incidentes(db: Session) -> list[Incidente]:
-    # existing DB doesn't have `creado_en` on incidente; order by id desc instead
-    return db.execute(select(Incidente).order_by(Incidente.id.desc())).scalars().all()
+def list_incidentes(db: Session, skip: int = 0, limit: int = 50) -> list[Incidente]:
+    return db.execute(
+        select(Incidente).order_by(Incidente.id.desc()).offset(skip).limit(limit)
+    ).scalars().all()
 
 
 def create_incidente(db: Session, payload: IncidenteCreate, cliente_id: str | None = None) -> Incidente:

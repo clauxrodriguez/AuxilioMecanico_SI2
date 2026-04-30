@@ -56,7 +56,7 @@ class IncidenteTrackingOut(BaseModel):
 
 
 class EvidenciaOut(ORMModel):
-    id: str
+    id: int
     incidente_id: str
     tipo: str
     url_archivo: str | None
@@ -64,7 +64,7 @@ class EvidenciaOut(ORMModel):
 
 
 class DiagnosticoOut(ORMModel):
-    id: str
+    id: int
     incidente_id: str
     clasificacion: int | None
     resumen: str | None

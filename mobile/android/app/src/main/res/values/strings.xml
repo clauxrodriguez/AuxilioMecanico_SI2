@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Firebase Configuration -->
+    <string name="firebase_database_url"></string>
+    <string name="firebase_api_key">AIzaSyBc3WPP5f6T4FScC5fr4s0rcgBixdcB4kw</string>
+    <string name="firebase_app_id">1:314510612181:android:e4a4b279854e119affb45c</string>
+    <string name="firebase_messaging_sender_id">314510612181</string>
+    <string name="firebase_project_id">auxiliomecanico-f0789</string>
+    <string name="firebase_storage_bucket">auxiliomecanico-f0789.firebasestorage.app</string>
+    
+    <string name="app_name">auxiliomecanico_movil</string>
+</resources>

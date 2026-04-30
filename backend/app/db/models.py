@@ -289,9 +289,9 @@ class Pago(Base):
 class Evidencia(Base):
     __tablename__ = "evidencia"
 
-    # evidence table uses integer PKs referencing incidente.id
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    incidente_id: Mapped[int] = mapped_column(Integer, ForeignKey("incidente.id", ondelete="CASCADE"), nullable=False)
+    # evidence table uses integer PKs referencing incidente.id (UUID string)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    incidente_id: Mapped[str] = mapped_column(String(36), ForeignKey("incidente.id", ondelete="CASCADE"), nullable=False)
     tipo: Mapped[str] = mapped_column(String(50), nullable=False)  # foto, audio, otro
     url_archivo: Mapped[str | None] = mapped_column(String(255), nullable=True)
     texto: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -302,8 +302,8 @@ class Evidencia(Base):
 class Diagnostico(Base):
     __tablename__ = "diagnostico"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    incidente_id: Mapped[int] = mapped_column(Integer, ForeignKey("incidente.id", ondelete="CASCADE"), nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    incidente_id: Mapped[str] = mapped_column(String(36), ForeignKey("incidente.id", ondelete="CASCADE"), nullable=False)
     clasificacion: Mapped[int | None] = mapped_column(Integer, nullable=True)
     resumen: Mapped[str | None] = mapped_column(Text, nullable=True)
     prioridad: Mapped[int | None] = mapped_column(Integer, nullable=True)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -35,7 +35,7 @@ def _parse_bool(value: str | bool | None) -> bool | None:
 def _resolve_create_payload_from_form(form_data) -> EmpleadoCreate:
     roles = [str(v) for v in form_data.getlist("roles") if str(v).strip()]
     sueldo_raw = form_data.get("sueldo")
-
+    send_credentials_raw = form_data.get("send_credentials")
     return EmpleadoCreate(
         nombre_completo=str(form_data.get("nombre_completo", "")),
         email=str(form_data.get("email", "")),
@@ -45,6 +45,7 @@ def _resolve_create_payload_from_form(form_data) -> EmpleadoCreate:
         sueldo=Decimal(str(sueldo_raw)) if sueldo_raw not in (None, "") else Decimal("0"),
         cargo=form_data.get("cargo") or None,
         roles=roles,
+        send_credentials=_parse_bool(send_credentials_raw) or False,
     )
 
 
@@ -99,12 +100,14 @@ def _resolve_target_empresa_id(db: Session, user: User) -> str:
 @router.get("/", response_model=list[EmpleadoOut])
 def empleados_list(
     request: Request,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[EmpleadoOut]:
     empleado = resolve_employee(db, user)
     empresa_id = resolve_tenant_empresa_id(user, empleado)
-    rows = list_empleados(db, empresa_id, exclude_user_id=user.id, exclude_admin_roles=True)
+    rows = list_empleados(db, empresa_id, exclude_user_id=user.id, exclude_admin_roles=True, skip=skip, limit=limit)
     base_url = get_base_url(request)
     return [_serialize_empleado(row, base_url) for row in rows]
 

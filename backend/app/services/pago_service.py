@@ -62,11 +62,13 @@ def create_pago(db: Session, asignacion_id: str, monto_total: Decimal | None, me
     return pago
 
 
-def list_pagos(db: Session, empresa_id: str | None = None) -> list[Pago]:
+def list_pagos(db: Session, empresa_id: str | None = None, skip: int = 0, limit: int = 50) -> list[Pago]:
     stmt = select(Pago)
     if empresa_id:
         stmt = stmt.where(Pago.empresa_id == empresa_id)
-    return db.execute(stmt.order_by(Pago.fecha_creacion.desc())).scalars().all()
+    return db.execute(
+        stmt.order_by(Pago.fecha_creacion.desc()).offset(skip).limit(limit)
+    ).scalars().all()
 
 
 def get_pago_or_404(db: Session, pago_id: str) -> Pago:

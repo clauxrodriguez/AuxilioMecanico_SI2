@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+import logging
 
 from app.db.models import Cliente, User
 from app.db.session import get_db
@@ -15,6 +16,8 @@ from app.services.permission_service import get_user_permissions, resolve_employ
 from app.services.user_management import activate_empleado_invitation, register_admin_step, register_empresa_step, register_empresa_with_admin
 from app.services.cliente_service import create_cliente, get_cliente_for_user
 from app.services.permission_service import resolve_employee
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["auth"])
 
@@ -110,17 +113,25 @@ def my_permissions(
 @router.patch("/fcm-token")
 def update_fcm_token(payload: FcmTokenUpdate, user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
     """Actualizar FCM token para el usuario autenticado (empleado o cliente)."""
+    token_preview = payload.fcm_token[:50] + "..." if len(payload.fcm_token) > 50 else payload.fcm_token
+    logger.debug("🔔 FCM: Recibida solicitud para actualizar token de usuario %s (token: %s)", user.id, token_preview)
+    
     empleado = resolve_employee(db, user)
     if empleado:
         empleado.fcm_token = payload.fcm_token
         db.commit()
-        return {"message": "FCM token actualizado"}
+        db.refresh(empleado)
+        logger.info("✅ FCM: Token actualizado para empleado %s", empleado.id)
+        return {"message": "FCM token actualizado para empleado"}
 
     cliente = get_cliente_for_user(db, user.id)
     if cliente:
         cliente.fcm_token = payload.fcm_token
         db.commit()
-        return {"message": "FCM token actualizado"}
+        db.refresh(cliente)
+        logger.info("✅ FCM: Token actualizado para cliente %s", cliente.id)
+        return {"message": "FCM token actualizado para cliente"}
 
-    # No asociado a cliente ni empleado: guardar en User? por ahora no
+    # No asociado a cliente ni empleado
+    logger.warning("❌ FCM: Usuario %s no asociado a cliente ni empleado", user.id)
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Usuario no asociado a cliente ni empleado")

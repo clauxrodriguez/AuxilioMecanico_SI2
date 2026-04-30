@@ -17,7 +17,7 @@ from app.db.models import Cargo, Empleado, Empresa, Permiso, Rol, Servicio, Susc
 from app.schemas.empleado import EmpleadoCreate, EmpleadoInvitationActivateRequest, EmpleadoUpdate
 from app.services.id_utils import get_next_numeric_id
 from app.schemas.register import RegisterAdminRequest, RegisterCompanyRequest, RegisterEmpresaRequest
-from app.services.email_service import send_employee_invitation_email
+from app.services.email_service import send_employee_invitation_email, send_employee_credentials_email
 
 PLAN_LIMITS = {
     "basico": {"usuarios": 15, "activos": 100},
@@ -428,6 +428,8 @@ def list_empleados(
     empresa_id: str | None,
     exclude_user_id: int | None = None,
     exclude_admin_roles: bool = False,
+    skip: int = 0,
+    limit: int = 50,
 ) -> list[Empleado]:
     stmt = (
         select(Empleado)
@@ -443,15 +445,14 @@ def list_empleados(
     if exclude_user_id is not None:
         stmt = stmt.where(Empleado.usuario_id != exclude_user_id)
     rows = db.execute(stmt).unique().scalars().all()
-    if not exclude_admin_roles:
-        return rows
-
-    admin_aliases = {"admin", "administrador"}
-    return [
-        row
-        for row in rows
-        if all((role.nombre or "").strip().lower() not in admin_aliases for role in row.roles)
-    ]
+    if exclude_admin_roles:
+        admin_aliases = {"admin", "administrador"}
+        rows = [
+            row
+            for row in rows
+            if all((role.nombre or "").strip().lower() not in admin_aliases for role in row.roles)
+        ]
+    return rows[skip: skip + limit]
 
 
 def get_empleado_or_404(db: Session, empleado_id: str, empresa_id: str | None) -> Empleado:
@@ -503,16 +504,34 @@ def create_empleado(db: Session, payload: EmpleadoCreate, empresa_id: str, foto_
     role_rows = _validate_role_ids(db, payload.roles, empresa_id)
     cargo_id = _validate_optional_fk(db, Cargo, payload.cargo, "Cargo")
 
+    # Decide whether to send credentials directly or use activation link
     pending_username = _generate_pending_username(payload.email)
+    # Default values
+    user_username = pending_username
+    user_password_hashed = hash_password(secrets.token_urlsafe(24))
+    user_is_active = False
+    temp_password_plain: str | None = None
+
+    if getattr(payload, "send_credentials", False):
+        # Try to use email as username when sending credentials, fallback to pending username
+        desired_username = payload.email.lower()
+        exists_username = db.execute(select(User).where(func.lower(User.username) == desired_username)).scalars().first()
+        if not exists_username:
+            user_username = desired_username
+        # generate a temporary password to send by email
+        temp_password_plain = secrets.token_urlsafe(10)
+        user_password_hashed = hash_password(temp_password_plain)
+        user_is_active = True
+
     user = User(
-        username=pending_username,
-        password=hash_password(secrets.token_urlsafe(24)),
+        username=user_username,
+        password=user_password_hashed,
         first_name=payload.nombre_completo,
         last_name="",
         email=payload.email,
         is_staff=False,
         is_superuser=False,
-        is_active=False,
+        is_active=user_is_active,
         date_joined=datetime.now(timezone.utc),
     )
     db.add(user)
@@ -532,18 +551,27 @@ def create_empleado(db: Session, payload: EmpleadoCreate, empresa_id: str, foto_
     )
     empleado.roles = role_rows
 
-    invitation_token = _create_employee_invitation_token(user.id, empresa_id)
-    invitation_url = _build_employee_invitation_url(invitation_token)
-
     db.add(empleado)
     db.commit()
 
+    # Send either credentials or invitation link depending on payload
     try:
-        send_employee_invitation_email(
-            to_email=payload.email,
-            employee_name=payload.nombre_completo,
-            invitation_url=invitation_url,
-        )
+        if getattr(payload, "send_credentials", False) and temp_password_plain is not None:
+            send_employee_credentials_email(
+                to_email=payload.email,
+                employee_name=payload.nombre_completo,
+                username=user.username,
+                password=temp_password_plain,
+            )
+        else:
+            # original invitation flow: create token + send activation link
+            invitation_token = _create_employee_invitation_token(user.id, empresa_id)
+            invitation_url = _build_employee_invitation_url(invitation_token)
+            send_employee_invitation_email(
+                to_email=payload.email,
+                employee_name=payload.nombre_completo,
+                invitation_url=invitation_url,
+            )
     except Exception:
         # Keep employee creation successful even when SMTP is unavailable.
         pass
