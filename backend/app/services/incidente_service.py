@@ -11,6 +11,8 @@ from sqlalchemy.orm import Session
 from app.db.models import Cliente, Diagnostico, Empleado, Evidencia, Incidente, Vehiculo
 from app.schemas.incidente import IncidenteCreate, IncidenteUpdate, TecnicoCercanoOut, TecnicoUbicacionUpdate
 from app.services.asignacion_service import create_asignacion, get_active_asignacion_for_incidente
+from app.services.notification_service import notify_assignment_to_employee
+from sqlalchemy import select
 
 
 def _distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -69,16 +71,27 @@ def update_incidente(db: Session, incidente: Incidente, payload: IncidenteUpdate
     return incidente
 
 
-def assign_tecnico(db: Session, incidente: Incidente, empleado_id: str, actor: Empleado | None = None) -> Incidente:
+def assign_tecnico(db: Session, incidente: Incidente, empleado_id: str | None = None, actor: Empleado | None = None) -> Incidente:
     # Create an operational assignment record (asignacion_servicio) instead of
     # mutating the incidente table. The assignment service will validate the
     # empleado and set empresa_id automatically.
-    empleado = db.get(Empleado, empleado_id)
-    if not empleado:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Empleado no encontrado")
-
-    if actor and actor.empresa_id != empleado.empresa_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No puedes asignar técnicos de otro taller")
+    empleado: Empleado | None = None
+    if empleado_id:
+        empleado = db.get(Empleado, empleado_id)
+        if not empleado:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Empleado no encontrado")
+        if actor and actor.empresa_id != empleado.empresa_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No puedes asignar técnicos de otro taller")
+    else:
+        # pick an available employee in the same empresa as actor if provided,
+        # otherwise any available employee
+        stmt = select(Empleado).where(Empleado.disponible == True)
+        if actor:
+            stmt = stmt.where(Empleado.empresa_id == actor.empresa_id)
+        candidato = db.execute(stmt).scalars().first()
+        if not candidato:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No hay técnicos disponibles para asignar")
+        empleado = candidato
 
     asign = create_asignacion(db, incidente=incidente, empleado_id=empleado.id, empresa_id=empleado.empresa_id)
     if incidente.estado == "pendiente":
@@ -86,6 +99,13 @@ def assign_tecnico(db: Session, incidente: Incidente, empleado_id: str, actor: E
         db.add(incidente)
         db.commit()
         db.refresh(incidente)
+
+    # notify the assigned employee (push)
+    try:
+        notify_assignment_to_employee(db, asign.id)
+    except Exception:
+        # do not fail assignment if notification fails
+        pass
 
     # return incidente (unchanged except estado)
     return incidente

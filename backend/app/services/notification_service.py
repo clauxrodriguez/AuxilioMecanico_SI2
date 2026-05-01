@@ -20,8 +20,22 @@ def _init_firebase():
         if not firebase_admin._apps:
             settings = get_settings()
             cred_path = settings.FIREBASE_CREDENTIALS_PATH or settings.firebase_credentials_path
+            # fallback: look for auxiliomecanico.json in repository root or current cwd
             if not cred_path:
-                logger.warning("FIREBASE_CREDENTIALS_PATH not configured; FCM disabled")
+                from pathlib import Path
+
+                cwd = Path.cwd()
+                candidate = cwd / "auxiliomecanico.json"
+                if candidate.exists():
+                    cred_path = str(candidate)
+                else:
+                    # also check package root (two levels up from this file)
+                    pkg_root_candidate = Path(__file__).resolve().parents[2] / "auxiliomecanico.json"
+                    if pkg_root_candidate.exists():
+                        cred_path = str(pkg_root_candidate)
+
+            if not cred_path:
+                logger.warning("FIREBASE_CREDENTIALS_PATH not configured and auxiliomecanico.json not found; FCM disabled")
                 return None
             cred = credentials.Certificate(cred_path)
             firebase_admin.initialize_app(cred)
@@ -79,3 +93,34 @@ def notify_new_incident(db: Session, incidente: Incidente) -> None:
                 logger.exception("Error notificando a empleado %s", emp.id)
     except Exception:
         logger.exception("Error en notify_new_incident")
+
+
+def notify_assignment_to_employee(db: Session, asignacion_id: str) -> None:
+    try:
+        # avoid circular import at module top; import here
+        from app.db.models import AsignacionServicio, Empleado, Incidente
+
+        asign: AsignacionServicio | None = db.get(AsignacionServicio, asignacion_id)
+        if not asign:
+            logger.warning("Asignacion %s no encontrada para notificar", asignacion_id)
+            return
+
+        empleado: Empleado | None = db.get(Empleado, asign.empleado_id) if asign.empleado_id else None
+        if not empleado:
+            logger.warning("Empleado %s no existe para asignacion %s", asign.empleado_id, asignacion_id)
+            return
+
+        # build message
+        titulo = "Nueva asignación"
+        descripcion = f"Tienes una nueva asignación (servicio: {asign.servicio_id})"
+        data = {"asignacion_id": asign.id, "incidente_id": asign.incidente_id or ""}
+
+        if empleado.fcm_token:
+            try:
+                send_push_notification(empleado.fcm_token, titulo, descripcion, data)
+            except Exception:
+                logger.exception("Error enviando notificación de asignación a empleado %s", empleado.id)
+        else:
+            logger.info("Empleado %s no tiene fcm_token, no se pudo enviar push", empleado.id)
+    except Exception:
+        logger.exception("Error en notify_assignment_to_employee")
