@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "314510612181",
+    "project_id": "auxiliomecanico-f0789",
+    "storage_bucket": "auxiliomecanico-f0789.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:314510612181:android:f747d3182a922ca9ffb45c",
+        "android_client_info": {
+          "package_name": "com.example.auxiliomecanico_movil"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "314510612181-abcdefghijklmnopqrstuvwxyz123456.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCPKP7fCGWhuU7FshRaaals1cFTQOOwN4g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "314510612181-abcdefghijklmnopqrstuvwxyz123456.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

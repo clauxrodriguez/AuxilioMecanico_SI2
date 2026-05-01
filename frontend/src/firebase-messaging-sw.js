@@ -1,20 +1,22 @@
 // Service Worker para Firebase Cloud Messaging
-importScripts('https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js');
-importScripts('https://www.gstatic.com/firebasejs/11.0.0/firebase-messaging.js');
+// Usar versiones compat para soportar importScripts en Service Workers
+importScripts('https://www.gstatic.com/firebasejs/12.12.1/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/12.12.1/firebase-messaging-compat.js');
 
 // Inicializar Firebase en el Service Worker
 const firebaseConfig = {
-  apiKey: 'YOUR_API_KEY',
-  authDomain: 'YOUR_AUTH_DOMAIN',
-  projectId: 'YOUR_PROJECT_ID',
-  storageBucket: 'YOUR_STORAGE_BUCKET',
-  messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-  appId: 'YOUR_APP_ID',
+  apiKey: "AIzaSyCPKP7fCGWhuU7FshRaaals1cFTQOOwN4g",
+  authDomain: "auxiliomecanico-f0789.firebaseapp.com",
+  projectId: "auxiliomecanico-f0789",
+  storageBucket: "auxiliomecanico-f0789.firebasestorage.app",
+  messagingSenderId: "314510612181",
+  appId: "1:314510612181:web:f747d3182a922ca9ffb45c",
+  measurementId: "G-R7MDFJRYQ6"
 };
 
 firebase.initializeApp(firebaseConfig);
 
-// Obtener la instancia de messaging
+// Obtener la instancia de messaging (compat)
 const messaging = firebase.messaging();
 
 // Manejar mensajes en background
