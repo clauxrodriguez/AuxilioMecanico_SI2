@@ -2,14 +2,14 @@ export const environment = {
   production: false,
   apiBaseUrl: 'http://localhost:8001',
   firebase: {
-  apiKey: "AIzaSyCPKP7fCGWhuU7FshRaaals1cFTQOOwN4g",
-  authDomain: "auxiliomecanico-f0789.firebaseapp.com",
-  projectId: "auxiliomecanico-f0789",
-  storageBucket: "auxiliomecanico-f0789.firebasestorage.app",
-  messagingSenderId: "314510612181",
-  appId: "1:314510612181:web:f747d3182a922ca9ffb45c",
-  measurementId: "G-R7MDFJRYQ6"
+    apiKey: "AIzaSyA1iDQPXiOSdTEtF34FEK9agsmALoR9gps",
+    authDomain: "proyectos-sistemas.firebaseapp.com",
+    projectId: "proyectos-sistemas",
+    storageBucket: "proyectos-sistemas.firebasestorage.app",
+    messagingSenderId: "759500035327",
+    appId: "1:759500035327:web:d3d7beb9c4b7f0d46e28ca",
+    measurementId: "G-L8ED4SQKL3"
   },
-   firebaseVapidKey: 'BNS653N8V9W1yoUjfLifFQoXyfaJxKIMBAdTl0FHaVc7Dl8IeMlLaWfMTEnaSvWDmGBnu2Q-x-ZJLir9om2KrIc'
+  firebaseVapidKey: 'BLffGY98ZC-XI-JJKLDvBoPYmwgPMfdqn72vEpJBk2HdfbTTgOS1xek70k7N5YPR_xyGWfS2QUCP5zz8ZJAlVK4'
 
 };

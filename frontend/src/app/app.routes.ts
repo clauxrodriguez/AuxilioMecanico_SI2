@@ -14,6 +14,8 @@ import { ClienteCreateComponent } from './components/clientes/cliente-create.com
 import { ClienteDetailComponent } from './components/clientes/cliente-detail.component';
 import { VehiculosComponent } from './components/vehiculos/vehiculos.component';
 import { IncidentesComponent } from './components/incidentes/incidentes.component';
+import { IncidentesComponent as SolicitudIncidentesComponent } from './components/solicitud_incidentes/solicitud_incidentes.component';
+import { AsignacionesEmpleadoComponent } from './components/asignaciones/asignaciones-empleado.component';
 import { ServicioComponent } from './components/servicio/servicio.component';
 import { UbicacionTallerComponent } from './components/taller/ubicacion-taller.component';
 import { PagosComponent } from './components/taller/pagos.component';
@@ -57,6 +59,8 @@ export const appRoutes: Routes = [
       { path: 'vehiculos', component: VehiculosComponent },
       { path: 'incidentes', component: IncidentesComponent },
       { path: 'incidentes/lista', component: IncidentesComponent },
+      { path: 'asignaciones', component: AsignacionesEmpleadoComponent },
+      { path: 'admin/solicitudes', component: SolicitudIncidentesComponent },
       { path: 'taller/ubicacion', component: UbicacionTallerComponent },
       { path: 'taller/pagos', component: PagosComponent },
       { path: 'taller/reportes', component: ReportesComponent },

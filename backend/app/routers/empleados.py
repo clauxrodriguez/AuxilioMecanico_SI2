@@ -6,9 +6,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, Upload
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import Empresa, User
+from app.db.models import AsignacionServicio, Empresa, User
 from app.db.session import get_db
 from app.deps.auth import get_base_url, get_current_user, require_permission, resolve_tenant_empresa_id
+from app.schemas.empleado import MiAsignacionOut
 from app.schemas.empleado import EmpleadoCreate, EmpleadoOut, EmpleadoUpdate
 from app.services.file_storage import save_profile_image
 from app.services.permission_service import resolve_employee
@@ -107,6 +108,43 @@ def empleados_list(
     rows = list_empleados(db, empresa_id, exclude_user_id=user.id, exclude_admin_roles=True)
     base_url = get_base_url(request)
     return [_serialize_empleado(row, base_url) for row in rows]
+
+
+@router.get("/me/asignaciones", response_model=list[MiAsignacionOut])
+def empleados_mis_asignaciones(
+        user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+) -> list[MiAsignacionOut]:
+        empleado = resolve_employee(db, user)
+        empresa_id = resolve_tenant_empresa_id(user, empleado)
+
+        stmt = (
+                select(AsignacionServicio)
+                .where(AsignacionServicio.empleado_id == empleado.id)
+                .where(AsignacionServicio.empresa_id == empresa_id)
+                .order_by(AsignacionServicio.fecha_asignacion.desc())
+        )
+        rows = db.execute(stmt).scalars().all()
+
+        result: list[MiAsignacionOut] = []
+        for asignacion in rows:
+            incidente = asignacion.incidente
+            result.append(
+                MiAsignacionOut(
+                    incidente_id=str(asignacion.incidente_id),
+                    incidente_tipo=incidente.tipo if incidente else None,
+                    incidente_descripcion=incidente.descripcion if incidente else None,
+                    incidente_estado=incidente.estado if incidente else None,
+                    incidente_latitud=float(incidente.latitud) if incidente and incidente.latitud is not None else None,
+                    incidente_longitud=float(incidente.longitud) if incidente and incidente.longitud is not None else None,
+                    fecha_asignacion=asignacion.fecha_asignacion.isoformat(),
+                    estado_tarea=asignacion.estado_tarea,
+                    servicio_id=asignacion.servicio_id,
+                    servicio_nombre=None,
+                )
+            )
+
+        return result
 
 
 @router.get("/{empleado_id}/", response_model=EmpleadoOut)

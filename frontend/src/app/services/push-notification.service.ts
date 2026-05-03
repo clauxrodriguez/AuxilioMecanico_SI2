@@ -11,7 +11,7 @@ import {
 } from 'firebase/messaging';
 
 export interface FcmTokenRequest {
-  fcm_token: string;
+  fcm_token: string | null;
 }
 
 @Injectable({
@@ -86,8 +86,10 @@ export class PushNotificationService {
     }
 
     try {
+      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
       const token = await getToken(this.messaging, {
-         vapidKey: environment.firebaseVapidKey, // Reemplazar con tu VAPID key de Firebase
+        vapidKey: environment.firebaseVapidKey,
+        serviceWorkerRegistration: registration,
       });
 
       if (token) {
@@ -100,6 +102,14 @@ export class PushNotificationService {
       }
     } catch (error) {
       console.error('[PushNotificationService] Error getting FCM token:', error);
+      if (error && typeof error === 'object' && 'code' in error) {
+        const code = String((error as { code?: string }).code || '');
+        if (code.includes('messaging/token-subscribe-failed')) {
+          console.error(
+            '[PushNotificationService] Revisa Firebase Web config (apiKey/appId), VAPID key y restricciones de API key en Google Cloud.'
+          );
+        }
+      }
       return null;
     }
   }
@@ -123,6 +133,28 @@ export class PushNotificationService {
       console.log('[PushNotificationService] FCM token sent to backend successfully');
     } catch (error) {
       console.error('[PushNotificationService] Error sending FCM token to backend:', error);
+    }
+  }
+
+  /**
+   * Limpiar el FCM token del usuario autenticado en el backend.
+   */
+  async clearTokenOnBackend(): Promise<void> {
+    if (!this.fcmToken && !this.tokenSent) {
+      return;
+    }
+
+    try {
+      const payload: FcmTokenRequest = { fcm_token: null };
+      await this.http
+        .patch<{ message: string }>(`${environment.apiBaseUrl}/api/auth/fcm-token`, payload)
+        .toPromise();
+
+      this.tokenSent = false;
+      this.fcmToken = null;
+      console.log('[PushNotificationService] FCM token cleared on backend successfully');
+    } catch (error) {
+      console.error('[PushNotificationService] Error clearing FCM token on backend:', error);
     }
   }
 

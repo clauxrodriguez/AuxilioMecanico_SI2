@@ -20,4 +20,4 @@ class AccessTokenResponse(BaseModel):
 
 
 class FcmTokenUpdate(BaseModel):
-    fcm_token: str
+    fcm_token: str | None = None

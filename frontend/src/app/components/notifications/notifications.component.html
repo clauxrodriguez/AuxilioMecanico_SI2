@@ -1,0 +1,21 @@
+<section class="card">
+  <header class="card-header">
+    <h3>Notificaciones</h3>
+    <button class="btn btn-ghost" (click)="clear()">Limpiar</button>
+  </header>
+
+  <div *ngIf="notifications.length === 0" class="muted">No hay notificaciones.</div>
+
+  <ul *ngIf="notifications.length > 0" class="notifications-list">
+    <li *ngFor="let n of notifications">
+      <div class="row">
+        <strong>{{ n.title || 'Notificación' }}</strong>
+        <span class="muted">{{ n.receivedAt | date: 'short' }}</span>
+      </div>
+      <div class="body">{{ n.body }}</div>
+      <div *ngIf="n.data?.['incidente_id'] || n.data?.['incidentId']" class="muted small">
+        Solicitud relacionada disponible en el sistema.
+      </div>
+    </li>
+  </ul>
+</section>

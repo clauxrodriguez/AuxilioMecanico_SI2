@@ -878,3 +878,4 @@ export class IncidentesComponent implements OnInit, AfterViewInit, OnDestroy {
     this.api.addEvidencia(it.id, 'foto', url).subscribe({ next: () => this.load() });
   }
 }
+

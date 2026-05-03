@@ -27,6 +27,11 @@ export interface IncidenteCreateRequest {
 
 export interface AsignarTecnicoRequest {
   empleado_id: string;
+  servicio_id?: string;
+}
+
+export interface IncidenteEstadoPatchRequest {
+  estado: string;
 }
 
 export interface TecnicoUbicacionRequest {
@@ -91,6 +96,10 @@ export class IncidenteApiService {
 
   update(id: string, patch: Partial<IncidenteDto>) {
     return this.http.patch<IncidenteDto>(`${this.base}/incidentes/${id}/`, patch);
+  }
+
+  updateEstado(id: string, payload: IncidenteEstadoPatchRequest) {
+    return this.http.patch<{ id: string; estado: string }>(`${this.base}/incidentes/${id}/estado`, payload);
   }
 
   addDiagnostico(id: string, payload: DiagnosticoCreate) {

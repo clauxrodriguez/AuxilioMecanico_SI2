@@ -126,10 +126,10 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.report_problem),
-              title: const Text('Registrar incidente'),
+              title: const Text('Solicitud de auxilio'),
               onTap: () {
                 Navigator.pop(context);
-                Navigator.pushNamed(context, '/registrar-incidente');
+                Navigator.pushNamed(context, '/solicitud-auxilio');
               },
             ),
             ListTile(
@@ -181,10 +181,10 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.pushNamed(context, '/registrar-incidente'),
+        onPressed: () => Navigator.pushNamed(context, '/solicitud-auxilio'),
         backgroundColor: Colors.red,
         icon: const Icon(Icons.warning),
-        label: const Text('Reportar Incidente'),
+        label: const Text('Pedir auxilio'),
       ),
       body: RefreshIndicator(
         onRefresh: _refreshVehicles,
@@ -202,7 +202,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Aquí puedes registrar y ver tus vehículos',
+                'Aquí puedes ver tus vehículos y pedir auxilio cuando lo necesites',
                 style: Theme.of(
                   context,
                 ).textTheme.bodyMedium?.copyWith(color: Colors.grey),

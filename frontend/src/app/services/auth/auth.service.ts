@@ -60,12 +60,7 @@ export class AuthService {
       switchMap((tokens) =>
         this.loadMyPermissions().pipe(
           switchMap(() => {
-            // Solicitar permiso de notificaciones después del login exitoso
-            this.pushNotificationService.requestPermission().then((token) => {
-              if (token) {
-                this.pushNotificationService.sendTokenToBackend(token);
-              }
-            });
+            this.registerPushNotificationsForCurrentUser();
             return of(tokens);
           })
         )
@@ -79,11 +74,7 @@ export class AuthService {
       switchMap((tokens) =>
         this.loadMyPermissions().pipe(
           switchMap(() => {
-            this.pushNotificationService.requestPermission().then((token) => {
-              if (token) {
-                this.pushNotificationService.sendTokenToBackend(token);
-              }
-            });
+            this.registerPushNotificationsForCurrentUser();
             return of(tokens);
           })
         )
@@ -101,11 +92,7 @@ export class AuthService {
       switchMap((tokens) =>
         this.loadMyPermissions().pipe(
           switchMap(() => {
-            this.pushNotificationService.requestPermission().then((token) => {
-              if (token) {
-                this.pushNotificationService.sendTokenToBackend(token);
-              }
-            });
+            this.registerPushNotificationsForCurrentUser();
             return of(tokens);
           })
         )
@@ -119,11 +106,7 @@ export class AuthService {
       switchMap((tokens) =>
         this.loadMyPermissions().pipe(
           switchMap(() => {
-            this.pushNotificationService.requestPermission().then((token) => {
-              if (token) {
-                this.pushNotificationService.sendTokenToBackend(token);
-              }
-            });
+            this.registerPushNotificationsForCurrentUser();
             return of(tokens);
           })
         )
@@ -169,7 +152,13 @@ export class AuthService {
     return this.isClient ? '/app/cliente/perfil' : '/app/empleados';
   }
 
-  logout(): void {
+  async logout(): Promise<void> {
+    try {
+      await this.pushNotificationService.clearTokenOnBackend();
+    } catch (error) {
+      console.error('[AuthService] Error clearing FCM token on logout:', error);
+    }
+
     localStorage.removeItem(this.tokenKey);
     localStorage.removeItem(this.refreshKey);
     this.isAuthenticatedSubject.next(false);
@@ -202,17 +191,22 @@ export class AuthService {
     try {
       const decoded = jwtDecode<DecodedToken>(token);
       if (decoded.exp * 1000 <= Date.now()) {
-        this.logout();
+        void this.logout();
         return;
       }
 
       this.isAuthenticatedSubject.next(true);
       this.decodedTokenSubject.next(decoded);
       this.loadMyPermissions().subscribe({
+        next: () => {
+          if (!this.isClient && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+            this.registerPushNotificationsForCurrentUser();
+          }
+        },
         error: () => this.permissionsSubject.next([]),
       });
     } catch {
-      this.logout();
+      void this.logout();
     }
   }
 
@@ -223,5 +217,18 @@ export class AuthService {
     const decoded = jwtDecode<DecodedToken>(tokens.access);
     this.decodedTokenSubject.next(decoded);
     this.isAuthenticatedSubject.next(true);
+  }
+
+  private registerPushNotificationsForCurrentUser(): void {
+    if (this.isClient) {
+      console.log('[AuthService] FCM skipped for client accounts');
+      return;
+    }
+
+    void this.pushNotificationService.requestPermission().then((token) => {
+      if (token) {
+        void this.pushNotificationService.sendTokenToBackend(token);
+      }
+    });
   }
 }

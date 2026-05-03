@@ -98,7 +98,7 @@ async def incidentes_asignar_tecnico(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incidente no encontrado")
 
     actor = resolve_employee(db, user)
-    updated = assign_tecnico(db, inc, payload.empleado_id, actor=actor)
+    updated = assign_tecnico(db, inc, payload.empleado_id, servicio_id=payload.servicio_id, actor=actor)
     tracking = get_incidente_tracking(db, updated)
     await tracking_ws_manager.broadcast(
         updated.id,

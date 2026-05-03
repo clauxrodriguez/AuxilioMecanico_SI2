@@ -1,10 +1,11 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { RouterLink, ActivatedRoute } from '@angular/router';
 
 import { AuthService } from '../../services/auth/auth.service';
 import { ClienteApiService } from '../../services/cliente.service';
+import { IncidenteApiService, IncidenteCreateRequest } from '../../services/incidente.service';
 import type { ClienteDto, VehiculoDto } from '../../services/cliente.service';
 
 @Component({
@@ -24,6 +25,7 @@ import type { ClienteDto, VehiculoDto } from '../../services/cliente.service';
       <nav class="menu-tabs">
         <button class="tab" [class.active]="activeSection === 'perfil'" (click)="setSection('perfil')">Perfil</button>
         <button class="tab" [class.active]="activeSection === 'vehiculos'" (click)="setSection('vehiculos')">Mis vehículos</button>
+        <button class="tab" [class.active]="activeSection === 'solicitud'" (click)="setSection('solicitud')">Solicitud de Auxilio</button>
       </nav>
 
       <p class="error" *ngIf="errorMsg">{{ errorMsg }}</p>
@@ -122,6 +124,115 @@ import type { ClienteDto, VehiculoDto } from '../../services/cliente.service';
         </section>
       </section>
 
+      <!-- Sección: Seguimiento de Solicitudes -->
+      <section class="card inner" *ngIf="activeSection === 'seguimiento'">
+        <div class="section-head">
+          <div>
+            <h3>Seguimiento de Solicitudes</h3>
+            <p class="muted">Estado y detalle de tus solicitudes de auxilio.</p>
+          </div>
+          <button class="btn btn-ghost" type="button" (click)="cargarSolicitudes()" [disabled]="loadingSolicitudes">
+            {{ loadingSolicitudes ? 'Cargando...' : 'Actualizar' }}
+          </button>
+        </div>
+
+        <p class="muted" *ngIf="loadingSolicitudes">Cargando solicitudes...</p>
+        <div *ngIf="!loadingSolicitudes && misSolicitudes.length === 0" class="muted">No tienes solicitudes registradas.</div>
+
+        <div class="solicitudes-list" *ngIf="!loadingSolicitudes && misSolicitudes.length > 0">
+          <article class="solicitud-card" *ngFor="let solicitud of misSolicitudes">
+            <div class="solicitud-header">
+              <div class="solicitud-info">
+                <h4>{{ solicitud.tipo || 'Solicitud' }}</h4>
+                <p class="muted">ID: {{ solicitud.id }}</p>
+                <p class="muted">Fecha: {{ solicitud.creado_en | date:'short' }}</p>
+              </div>
+              <div class="estado-badge" [ngClass]="'estado-' + (solicitud.estado || 'pendiente')">
+                {{ solicitud.estado || 'pendiente' }}
+              </div>
+            </div>
+
+            <div class="solicitud-detail">
+              <p class="descripcion"><strong>Descripción:</strong> {{ solicitud.descripcion || 'Sin descripción' }}</p>
+              
+              <div class="info-grid">
+                <div>
+                  <span class="label-inline">Vehículo</span>
+                  <strong>{{ solicitud.vehiculo_id || 'N/A' }}</strong>
+                </div>
+                <div>
+                  <span class="label-inline">Prioridad</span>
+                  <strong>P{{ solicitud.prioridad || '-' }}</strong>
+                </div>
+                <div>
+                  <span class="label-inline">Ubicación</span>
+                  <strong class="coords">
+                    {{ solicitud.latitud?.toFixed(4) || '-' }}, 
+                    {{ solicitud.longitud?.toFixed(4) || '-' }}
+                  </strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="solicitud-actions">
+              <button class="btn btn-secondary" type="button" (click)="abrirMapa(solicitud)">
+                📍 Ver en mapa
+              </button>
+              <button class="btn btn-ghost" type="button" (click)="verDetalleTracking(solicitud)">
+                📊 Seguimiento en vivo
+              </button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="card inner" *ngIf="activeSection === 'solicitud'">
+        <div class="section-head">
+          <div>
+            <h3>Solicitud de Auxilio</h3>
+            <p class="muted">Marca la ubicación en el mapa o usa tu ubicación actual.</p>
+          </div>
+        </div>
+
+        <div class="map-area">
+          <div class="map-embed">
+            <iframe
+              width="100%"
+              height="320"
+              [src]="mapUrl"
+              style="border:0;"
+              loading="lazy"
+            ></iframe>
+          </div>
+
+          <div class="form-grid" style="margin-top:1rem">
+            <select class="input" [(ngModel)]="createForm.tipo" name="tipo">
+              <option value="">Selecciona tipo</option>
+              <option value="averia">Avería</option>
+              <option value="accidente">Accidente</option>
+              <option value="otro">Otro</option>
+            </select>
+
+            <textarea class="input" [(ngModel)]="createForm.descripcion" name="descripcion" placeholder="Descripción del problema"></textarea>
+
+            <div>
+              <label class="label">Latitud</label>
+              <input class="input" [(ngModel)]="createForm.latitud" name="lat" />
+            </div>
+
+            <div>
+              <label class="label">Longitud</label>
+              <input class="input" [(ngModel)]="createForm.longitud" name="lon" />
+            </div>
+
+            <div style="display:flex;gap:0.5rem;align-items:center">
+              <button class="btn btn-ghost" type="button" (click)="useMyLocation()">Usar mi ubicación</button>
+              <button class="btn btn-primary" type="button" (click)="submitSolicitud()" [disabled]="submitting">{{ submitting ? 'Enviando...' : 'Solicitar Auxilio' }}</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
     </section>
   `,
   styles: [
@@ -143,6 +254,68 @@ import type { ClienteDto, VehiculoDto } from '../../services/cliente.service';
       .vehicle-list { display: grid; gap: 0.75rem; margin-top: 1rem; }
       .vehicle-card { border: 1px solid var(--line); border-radius: 12px; padding: 0.9rem; display: flex; justify-content: space-between; gap: 0.8rem; flex-wrap: wrap; }
       .vehicle-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+      
+      .solicitudes-list { display: grid; gap: 0.75rem; margin-top: 1rem; }
+      .solicitud-card { 
+        border: 1px solid var(--line); 
+        border-radius: 12px; 
+        padding: 1rem; 
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(99, 102, 241, 0.05) 100%);
+      }
+      .solicitud-header { 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: flex-start; 
+        gap: 1rem; 
+        margin-bottom: 0.75rem;
+        flex-wrap: wrap;
+      }
+      .solicitud-info h4 { margin: 0 0 0.25rem 0; }
+      .solicitud-detail { margin: 0.75rem 0; }
+      .solicitud-detail .descripcion { margin: 0.5rem 0; }
+      .solicitud-detail .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; margin-top: 0.5rem; }
+      .solicitud-actions { 
+        display: flex; 
+        gap: 0.5rem; 
+        margin-top: 0.75rem; 
+        flex-wrap: wrap;
+      }
+      .estado-badge {
+        padding: 0.5rem 0.85rem;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        white-space: nowrap;
+        text-transform: uppercase;
+      }
+      .estado-pendiente {
+        background: rgba(249, 115, 22, 0.2);
+        color: #fb923c;
+      }
+      .estado-asignado {
+        background: rgba(59, 130, 246, 0.2);
+        color: #60a5fa;
+      }
+      .estado-en_proceso {
+        background: rgba(139, 92, 246, 0.2);
+        color: #c084fc;
+      }
+      .estado-atendido {
+        background: rgba(34, 197, 94, 0.2);
+        color: #86efac;
+      }
+      .coords {
+        font-family: monospace;
+        font-size: 0.8rem;
+      }
+      .btn { padding: 0.6rem 1rem; border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 8px; font-weight: 500; cursor: pointer; }
+      .btn-primary { background: var(--brand); color: white; border-color: var(--brand); }
+      .btn-primary:hover { background: #2563eb; }
+      .btn-secondary { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+      .btn-secondary:hover { background: rgba(59, 130, 246, 0.25); }
+      .btn-ghost { background: transparent; color: var(--muted); border: 1px solid rgba(255, 255, 255, 0.1); }
+      .btn-ghost:hover { background: rgba(255, 255, 255, 0.05); color: var(--text); }
+      .btn:disabled { opacity: 0.5; cursor: not-allowed; }
     `,
   ],
 })
@@ -152,11 +325,13 @@ export class ClientProfileComponent implements OnInit {
   vehiculos: VehiculoDto[] = [];
   selectedVehicle: VehiculoDto | null = null;
   loadingVehiculos = false;
+  loadingSolicitudes = false;
   savingProfile = false;
   editingProfile = false;
   showVehicleForm = false;
-  activeSection: 'perfil' | 'vehiculos' = 'perfil';
+  activeSection: 'perfil' | 'vehiculos' | 'solicitud' | 'seguimiento' = 'perfil';
   errorMsg = '';
+  misSolicitudes: any[] = [];
 
   profileForm = {
     nombre: '',
@@ -172,12 +347,39 @@ export class ClientProfileComponent implements OnInit {
     anio: undefined,
   };
 
+  // --- Solicitud de auxilio state
+  createForm: IncidenteCreateRequest = {
+    vehiculo_id: undefined,
+    tipo: '',
+    descripcion: '',
+    latitud: undefined,
+    longitud: undefined,
+  };
+  submitting = false;
+
+  get mapUrl() {
+    const lat = this.createForm.latitud ?? 0;
+    const lon = this.createForm.longitud ?? 0;
+    const q = encodeURIComponent(`${lat},${lon}`);
+    return `https://maps.google.com/maps?q=${q}&z=15&output=embed`;
+  }
+
   constructor(
     public readonly auth: AuthService,
     private readonly clienteApi: ClienteApiService,
+    private readonly incidenteApi: IncidenteApiService,
+    private readonly route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
+    // Detectar el parámetro "tab" en la URL y abrir la pestaña correspondiente
+    this.route.queryParamMap.subscribe((params) => {
+      const tab = params.get('tab');
+      if (tab === 'seguimiento') {
+        this.activeSection = 'seguimiento';
+      }
+    });
+
     this.clienteApi.getMe().subscribe({
       next: (cliente) => {
         this.cliente = cliente;
@@ -191,10 +393,14 @@ export class ClientProfileComponent implements OnInit {
       error: (error) => (this.errorMsg = error?.error?.detail || 'No se pudo cargar el perfil de cliente.'),
     });
     this.loadVehiculos();
+    this.cargarSolicitudes();
   }
 
-  setSection(section: 'perfil' | 'vehiculos'): void {
+  setSection(section: 'perfil' | 'vehiculos' | 'solicitud' | 'seguimiento'): void {
     this.activeSection = section;
+    if (section === 'seguimiento') {
+      this.cargarSolicitudes();
+    }
   }
 
   loadVehiculos(): void {
@@ -286,6 +492,73 @@ export class ClientProfileComponent implements OnInit {
         this.errorMsg = error?.error?.detail || 'No se pudo eliminar el vehiculo.';
       },
     });
+  }
+
+  useMyLocation(): void {
+    if (!navigator.geolocation) {
+      this.errorMsg = 'Geolocalización no disponible';
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        this.createForm.latitud = pos.coords.latitude;
+        this.createForm.longitud = pos.coords.longitude;
+      },
+      () => (this.errorMsg = 'No se pudo obtener tu ubicación'),
+    );
+  }
+
+  submitSolicitud(): void {
+    if (!this.createForm.tipo) {
+      this.errorMsg = 'Selecciona el tipo de incidente';
+      return;
+    }
+    if (this.createForm.latitud == null || this.createForm.longitud == null) {
+      this.errorMsg = 'Indica la ubicación en el mapa o usa tu ubicación';
+      return;
+    }
+    this.submitting = true;
+    this.incidenteApi.create(this.createForm).subscribe({
+      next: () => {
+        this.submitting = false;
+        this.createForm = { vehiculo_id: undefined, tipo: '', descripcion: '', latitud: undefined, longitud: undefined };
+        this.errorMsg = '';
+        // navigate to incidents or just notify
+        alert('Solicitud creada correctamente');
+      },
+      error: (err) => {
+        this.submitting = false;
+        this.errorMsg = err?.error?.detail || 'Error al crear la solicitud';
+      },
+    });
+  }
+
+  cargarSolicitudes(): void {
+    this.loadingSolicitudes = true;
+    this.incidenteApi.list().subscribe({
+      next: (data) => {
+        this.misSolicitudes = data || [];
+        this.loadingSolicitudes = false;
+      },
+      error: (err) => {
+        this.loadingSolicitudes = false;
+        this.errorMsg = err?.error?.detail || 'Error al cargar solicitudes';
+      },
+    });
+  }
+
+  abrirMapa(solicitud: any): void {
+    if (!solicitud.latitud || !solicitud.longitud) {
+      this.errorMsg = 'La solicitud no tiene ubicación';
+      return;
+    }
+    const url = `https://maps.google.com/?q=${solicitud.latitud},${solicitud.longitud}`;
+    window.open(url, '_blank');
+  }
+
+  verDetalleTracking(solicitud: any): void {
+    // Navegar a la página de tracking del incidente
+    window.location.href = `/app/incidentes/tracking/${solicitud.id}`;
   }
 
 }

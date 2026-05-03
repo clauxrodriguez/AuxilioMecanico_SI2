@@ -45,10 +45,10 @@ class AppDrawer extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.report),
-              title: const Text('Mis incidentes'),
+              title: const Text('Solicitud de auxilio'),
               onTap: () {
                 Navigator.pop(context);
-                Navigator.pushNamed(context, '/client/incidents');
+                Navigator.pushNamed(context, '/solicitud-auxilio');
               },
             ),
           ],

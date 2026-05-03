@@ -27,6 +27,12 @@ def build_user_claims(db: Session, user: User) -> dict:
     if empleado:
         full_name = (empleado.nombre_completo or user.first_name or user.username).strip()
         role_names = [rol.nombre for rol in empleado.roles]
+        # Consider empleado roles as source of truth for admin status (fall back to user.is_staff)
+        admin_aliases = {"admin", "administrador"}
+        role_name_set = {(r or "").strip().lower() for r in role_names}
+        is_admin_by_role = any(alias in role_name_set for alias in admin_aliases)
+        is_admin = bool(user.is_staff) or is_admin_by_role
+        role_value = "admin" if is_admin else "empleado"
         return {
             "username": user.username,
             "email": user.email,
@@ -34,8 +40,8 @@ def build_user_claims(db: Session, user: User) -> dict:
             "empresa_id": empleado.empresa_id,
             "empresa_nombre": empleado.empresa.nombre if empleado.empresa else None,
             "roles": role_names,
-            "role": "admin" if user.is_staff else "empleado",
-            "is_admin": bool(user.is_staff),
+            "role": role_value,
+            "is_admin": is_admin,
             "empleado_id": empleado.id,
             "cliente_id": None,
             "foto_perfil": empleado.foto_perfil,

@@ -65,6 +65,10 @@ def require_permission(permission_name: str) -> Callable:
 
 
 def resolve_tenant_empresa_id(user: User, empleado: Empleado | None) -> str | None:
+    # Staff users that are also attached to an employee record should stay
+    # scoped to their company. Only truly global staff fall back to None.
+    if user.is_staff and empleado:
+        return empleado.empresa_id
     if user.is_staff:
         return None
     if not empleado:
