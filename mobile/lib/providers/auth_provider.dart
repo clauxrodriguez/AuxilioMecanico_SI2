@@ -16,6 +16,7 @@ class AuthProvider with ChangeNotifier {
   User? _user;
   bool _isLoading = true;
   String? _error;
+  bool _notificationListenersInitialized = false;
 
   // Getters
   String? get token => _token;
@@ -33,47 +34,109 @@ class AuthProvider with ChangeNotifier {
   /// Obtiene si el usuario autenticado es cliente
   bool get isClient => _user?.role == 'cliente';
 
+  User _mergeProfileWithTokenRole(
+    User profile,
+    Map<String, dynamic> tokenData,
+  ) {
+    final tokenRole = tokenData['role']?.toString().toLowerCase().trim();
+    final tokenIsAdmin =
+        tokenData['is_admin'] == true || tokenData['es_admin'] == true;
+
+    final effectiveRole = tokenIsAdmin
+        ? AppConstants.roleAdmin
+        : (tokenRole == AppConstants.roleAdmin ||
+              tokenRole == 'cliente' ||
+              tokenRole == AppConstants.roleEmployee)
+        ? tokenRole!
+        : profile.role;
+
+    if (profile.role == effectiveRole) {
+      return profile;
+    }
+
+    return User(
+      id: profile.id,
+      username: profile.username,
+      email: profile.email,
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      role: effectiveRole,
+      empresaId: profile.empresaId,
+      clienteId: profile.clienteId,
+      isActive: profile.isActive,
+      createdAt: profile.createdAt,
+    );
+  }
+
   AuthProvider() {
-    _initializeAuth();
+    _initializeAuth().catchError((e) {
+      debugPrint('❌ FATAL: Error en _initializeAuth: $e');
+      _isLoading = false;
+      _error = 'Error crítico inicializando autenticación';
+      notifyListeners();
+    });
   }
 
   /// Inicializa la autenticación verificando si hay un token guardado
   Future<void> _initializeAuth() async {
     try {
       _isLoading = true;
+      notifyListeners();
+      
+      debugPrint('🔑 Iniciando lectura de tokens almacenados...');
       _token = await _storage.read(key: AppConstants.storageKeyToken);
       _refreshToken = await _storage.read(
         key: AppConstants.storageKeyRefreshToken,
       );
 
       if (_token != null && !Jwt.isExpired(_token!)) {
+        debugPrint('✅ Token válido encontrado');
         // Token válido, decodificar usuario del token
         final decodedToken = Jwt.parseJwt(_token!);
-        print('Token decodificado: $decodedToken');
+        debugPrint('Token decodificado: $decodedToken');
 
         // Obtener perfil completo del usuario desde el backend
         try {
+          debugPrint('🌐 Conectando al backend para obtener perfil...');
           final apiService = ApiService(token: _token);
-          _user = await apiService.getProfile();
-          print('✅ Usuario obtenido del backend: $_user');
-          print('✅ Rol del usuario: ${_user?.role}');
+          final profile = await apiService.getProfile().timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              throw Exception('Timeout obteniendo perfil (10s)');
+            },
+          );
+          
+          _user = _mergeProfileWithTokenRole(profile, decodedToken);
+          debugPrint('✅ Usuario obtenido del backend: $_user');
+          debugPrint('✅ Rol del usuario: ${_user?.role}');
         } catch (e) {
-          print('Error al obtener perfil: $e');
-          // Si no se puede obtener el perfil, hacer logout
-          await logout();
+          debugPrint('⚠️ Error al obtener perfil: $e');
+          // Si no se puede obtener el perfil, hacer logout sin fallar
+          try {
+            await logout();
+          } catch (logoutError) {
+            debugPrint('⚠️ Error durante logout: $logoutError');
+          }
         }
       } else {
+        debugPrint('ℹ️ Sin token válido - usuario no autenticado');
         // Token expirado o no existe
         _token = null;
         _refreshToken = null;
         _user = null;
       }
-    } catch (e) {
-      print('Error inicializando autenticación: $e');
-      _error = 'Error al inicializar sesión';
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error inicializando autenticación: $e');
+      debugPrint('Stack trace: $stackTrace');
+      _error = 'Error al inicializar sesión: ${e.toString()}';
+      // No rethrow - solo continuar
     } finally {
       _isLoading = false;
-      notifyListeners();
+      try {
+        notifyListeners();
+      } catch (e) {
+        debugPrint('⚠️ Error notificando listeners: $e');
+      }
     }
   }
 
@@ -111,7 +174,11 @@ class AuthProvider with ChangeNotifier {
 
       // Obtener perfil del usuario
       final authApiService = ApiService(token: _token);
-      _user = await authApiService.getProfile();
+      final decodedToken = Jwt.parseJwt(_token!);
+      _user = _mergeProfileWithTokenRole(
+        await authApiService.getProfile(),
+        decodedToken,
+      );
       print('✅ Login exitoso. Usuario: $_user');
       print('✅ Rol detectado: ${_user?.role}');
 
@@ -172,7 +239,11 @@ class AuthProvider with ChangeNotifier {
       }
 
       final authApiService = ApiService(token: _token);
-      _user = await authApiService.getProfile();
+      final decodedToken = Jwt.parseJwt(_token!);
+      _user = _mergeProfileWithTokenRole(
+        await authApiService.getProfile(),
+        decodedToken,
+      );
 
       _isLoading = false;
       notifyListeners();
@@ -227,9 +298,13 @@ class AuthProvider with ChangeNotifier {
 
   /// Inicializar listeners de notificaciones
   void initializeNotificationListeners(BuildContext context) {
+    if (_notificationListenersInitialized) {
+      return;
+    }
     NotificationService.initializeNotifications(context, (incidentId) {
       _handleIncidentNotification(incidentId);
     });
+    _notificationListenersInitialized = true;
   }
 
   /// Manejar notificación de incidente

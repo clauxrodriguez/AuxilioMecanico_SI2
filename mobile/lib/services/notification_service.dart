@@ -1,16 +1,20 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 /// Servicio para manejar notificaciones de Firebase Cloud Messaging
 class NotificationService {
   static FirebaseMessaging? _firebaseMessaging;
+  static bool _listenersInitialized = false;
 
   static FirebaseMessaging? _messagingOrNull() {
     try {
       _firebaseMessaging ??= FirebaseMessaging.instance;
       return _firebaseMessaging;
     } catch (e) {
-      print('[NotificationService] Firebase no disponible: $e');
+      if (kDebugMode) {
+        debugPrint('[NotificationService] Firebase no disponible: $e');
+      }
       return null;
     }
   }
@@ -21,6 +25,16 @@ class NotificationService {
     Function(String?) onIncidentNotification,
   ) {
     try {
+      if (_listenersInitialized) {
+        return;
+      }
+
+      final messaging = _messagingOrNull();
+      if (messaging == null) {
+        if (kDebugMode) debugPrint('[NotificationService] Omite listeners: Firebase no inicializado');
+        return;
+      }
+
       // Escuchar mensajes cuando la app está en foreground
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         _handleForegroundMessage(context, message, onIncidentNotification);
@@ -30,8 +44,10 @@ class NotificationService {
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
         _handleMessageOpenedApp(context, message, onIncidentNotification);
       });
+
+      _listenersInitialized = true;
     } catch (e) {
-      print('[NotificationService] No se pudieron inicializar notificaciones: $e');
+      if (kDebugMode) debugPrint('[NotificationService] No se pudieron inicializar notificaciones: $e');
     }
   }
 
@@ -44,10 +60,10 @@ class NotificationService {
       }
 
       final token = await messaging.getToken();
-      print('[NotificationService] FCM Token: $token');
+      if (kDebugMode) debugPrint('[NotificationService] FCM Token: $token');
       return token;
     } catch (e) {
-      print('[NotificationService] Error obteniendo FCM token: $e');
+      if (kDebugMode) debugPrint('[NotificationService] Error obteniendo FCM token: $e');
       return null;
     }
   }

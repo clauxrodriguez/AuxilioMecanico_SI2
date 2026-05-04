@@ -1,7 +1,7 @@
 /// Constantes de la aplicación
 class AppConstants {
   // URLs base del API
-  static const String baseUrl = 'http://10.0.2.2:8000'; // Android Emulator
+  static const String baseUrl = 'http://10.0.2.2:8001'; // Android Emulator
   // Para dispositivo físico o web, cambiar a tu IP local: 'http://192.168.x.x:8001'
   
   static const String apiPrefix = '/api';
@@ -11,6 +11,7 @@ class AppConstants {
   static const String empleadosEndpoint = '$apiPrefix/empleados';
   static const String rolesEndpoint = '$apiPrefix/roles';
   static const String permisosEndpoint = '$apiPrefix/permisos';
+  static const String notificacionesEndpoint = '$apiPrefix/notificaciones';
 
   // Claves de almacenamiento seguro
   static const String storageKeyToken = 'auth_token';

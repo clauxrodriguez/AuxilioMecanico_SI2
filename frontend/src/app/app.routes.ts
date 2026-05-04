@@ -6,6 +6,7 @@ import { RegisterComponent } from './components/auth/register/register.component
 import { ActivateInviteComponent } from './components/auth/activate-invite/activate-invite.component';
 import { MainLayoutComponent } from './layouts/main-layout/main-layout.component';
 import { EmpleadoComponent } from './components/empleado/empleado.component';
+import { EmpleadoPanelComponent } from './components/empleado/empleado-panel.component';
 import { CargoComponent } from './components/cargo/cargo.component';
 import { RolComponent } from './components/rol/rol.component';
 import { PermisoComponent } from './components/permisos/permiso.component';
@@ -33,6 +34,8 @@ export const appRoutes: Routes = [
     canActivate: [authGuard],
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'incidentes' },
+      { path: 'empleado/perfil', component: EmpleadoPanelComponent },
+      { path: 'empleado/asignaciones', component: AsignacionesEmpleadoComponent },
       { path: 'empleados/nuevo', component: EmpleadoComponent },
       { path: 'empleados', component: EmpleadoComponent },
       { path: 'cargos/nuevo', component: CargoComponent },

@@ -17,16 +17,14 @@ import type { Empleado } from '../../models/user-management.models';
           <p class="eyebrow">Panel de empleado</p>
           <h2>{{ empleado?.nombre_completo || auth.currentUser?.nombre_completo || 'Mi panel' }}</h2>
           <p class="muted">
-            Revisa tu perfil y tus asignaciones de servicio.
+            Revisa tu información personal.
           </p>
-        </div>
-        <div class="hero-actions">
-          <a routerLink="/app/incidentes" class="btn btn-ghost">Solicitudes asignadas</a>
         </div>
       </header>
 
       <p class="error" *ngIf="errorMsg">{{ errorMsg }}</p>
 
+      <!-- SECCIÓN: MI PERFIL -->
       <div class="grid">
         <article class="card block">
           <div class="section-head">

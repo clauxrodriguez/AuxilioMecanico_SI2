@@ -76,6 +76,7 @@ def me_legacy(
     db: Session = Depends(get_db),
 ) -> dict:
     empleado = resolve_employee(db, user)
+    cliente = get_cliente_for_user(db, user.id)
     role_names = {(role.nombre or "").strip().lower() for role in (empleado.roles if empleado else [])}
     is_admin_role = "admin" in role_names or "administrador" in role_names
 
@@ -85,10 +86,10 @@ def me_legacy(
         "email": user.email,
         "first_name": user.first_name,
         "last_name": user.last_name,
-        "role": "admin" if user.is_staff else ("cliente" if get_cliente_for_user(db, user.id) else ("empleado" if empleado else "usuario")),
+        "role": "admin" if user.is_staff else ("cliente" if cliente else ("empleado" if empleado else "usuario")),
         "es_admin": bool(user.is_staff) or is_admin_role,
         "empresa_id": empleado.empresa_id if empleado else None,
-        "cliente_id": get_cliente_for_user(db, user.id).id if get_cliente_for_user(db, user.id) else None,
+        "cliente_id": cliente.id if cliente else None,
         "is_active": bool(user.is_active),
         "created_at": user.date_joined.isoformat() if user.date_joined else None,
     }

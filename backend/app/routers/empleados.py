@@ -110,6 +110,18 @@ def empleados_list(
     return [_serialize_empleado(row, base_url) for row in rows]
 
 
+@router.get("/me/", response_model=EmpleadoOut)
+def empleados_me(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> EmpleadoOut:
+    empleado = resolve_employee(db, user)
+    if not empleado:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="El usuario no está asociado a un empleado")
+    return _serialize_empleado(empleado, get_base_url(request))
+
+
 @router.get("/me/asignaciones", response_model=list[MiAsignacionOut])
 def empleados_mis_asignaciones(
         user: User = Depends(get_current_user),

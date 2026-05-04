@@ -17,8 +17,8 @@ import { AuthService } from '../../services/auth/auth.service';
         <span class="badge">{{ auth.isClient ? 'Cliente' : (user.empresa_nombre || 'Sin empresa') }}</span>
       </p>
 
-      <nav *ngIf="!auth.isClient">
-        <a routerLink="/app/incidentes" routerLinkActive="active">Solicitudes de auxilio</a>
+      <nav *ngIf="auth.isAdmin && hasAdminPermission">
+        <a routerLink="/app/admin/solicitudes" routerLinkActive="active">Solicitudes de auxilio</a>
         <a routerLink="/app/empleados" routerLinkActive="active">Empleados (Técnicos)</a>
         <a routerLink="/app/taller/ubicacion" routerLinkActive="active">Ubicación del taller</a>
         <a routerLink="/app/servicios" routerLinkActive="active">Servicios</a>
@@ -28,6 +28,11 @@ import { AuthService } from '../../services/auth/auth.service';
         <a routerLink="/app/taller/reportes" routerLinkActive="active">Reportes</a>
         <a routerLink="/app/roles" routerLinkActive="active">Roles y permisos</a>
         <a routerLink="/app/taller/configuracion" routerLinkActive="active">Configuración</a>
+      </nav>
+
+      <nav *ngIf="!auth.isClient && !auth.isAdmin">
+        <a routerLink="/app/empleado/perfil" routerLinkActive="active">Mi perfil</a>
+        <a routerLink="/app/empleado/asignaciones" routerLinkActive="active">Mis asignaciones</a>
       </nav>
 
       <nav *ngIf="auth.isClient">
@@ -77,6 +82,12 @@ import { AuthService } from '../../services/auth/auth.service';
 })
 export class SidebarComponent {
   constructor(public readonly auth: AuthService) {}
+
+  get hasAdminPermission(): boolean {
+    return this.auth.hasPermission('manage_empleado') || 
+           this.auth.hasPermission('manage_rol') || 
+           this.auth.hasPermission('manage_servicio');
+  }
 
   logout(): void {
     this.auth.logout();

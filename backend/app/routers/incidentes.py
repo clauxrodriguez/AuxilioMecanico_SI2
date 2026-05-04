@@ -30,6 +30,9 @@ from app.services.incidente_service import (
     update_tecnico_ubicacion,
     add_diagnostico,
     add_evidencia,
+    list_diagnosticos_for_incidente,
+    get_diagnostico_or_404,
+    update_diagnostico,
 )
 from app.services.asignacion_service import get_active_asignacion_for_incidente
 from app.services.file_storage import save_incidente_evidence
@@ -39,8 +42,6 @@ from app.services.transcription_service import transcribe_audio
 import tempfile
 import os
 import shutil
-from app.services.notification_service import notify_new_incident
-
 router = APIRouter(prefix="/incidentes", tags=["incidentes"])
 settings = get_settings()
 
@@ -75,14 +76,7 @@ def incidentes_create(payload: IncidenteCreate, user=Depends(get_current_user), 
     if cliente:
         cliente_id = cliente.id
 
-    inc = create_incidente(db, payload, cliente_id=cliente_id)
-    # Notify available technicians (don't let FCM errors break creation)
-    try:
-        notify_new_incident(db, inc)
-    except Exception:
-        # Log only; creation already completed
-        pass
-    return inc
+    return create_incidente(db, payload, cliente_id=cliente_id)
 
 
 @router.post("/{incidente_id}/asignacion", response_model=IncidenteOut)
@@ -335,7 +329,13 @@ def incidentes_add_evidencia(
         inc = get_incidente_or_404(db, incidente_id)
     except ValueError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incidente no encontrado")
-    ev = add_evidencia(db, inc, tipo, url_archivo=url_archivo, texto=texto)
+    ev = add_evidencia(
+        db,
+        inc,
+        body.get("tipo", "texto"),
+        url_archivo=body.get("url_archivo"),
+        texto=body.get("texto"),
+    )
     return {"id": ev.id}
 
 

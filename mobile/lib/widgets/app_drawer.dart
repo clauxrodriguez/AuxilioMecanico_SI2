@@ -52,7 +52,7 @@ class AppDrawer extends StatelessWidget {
               },
             ),
           ],
-          if (role == 'admin' || role == 'empleado') ...[
+          if (role == 'admin') ...[
             ListTile(
               leading: const Icon(Icons.directions_car_filled),
               title: const Text('Vehículos (operativo)'),
@@ -78,13 +78,39 @@ class AppDrawer extends StatelessWidget {
               },
             ),
           ],
+          if (role == 'empleado') ...[
+            ListTile(
+              leading: const Icon(Icons.person),
+              title: const Text('Mi perfil'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/empleado/perfil');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.assignment),
+              title: const Text('Mis asignaciones'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/empleado/asignaciones');
+              },
+            ),
+          ],
+          ListTile(
+            leading: const Icon(Icons.notifications),
+            title: const Text('Notificaciones'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, '/notificaciones');
+            },
+          ),
           const Spacer(),
           ListTile(
             leading: const Icon(Icons.person),
             title: const Text('Perfil'),
             onTap: () {
               Navigator.pop(context);
-              Navigator.pushNamed(context, '/profile');
+              Navigator.pushNamed(context, '/perfil');
             },
           ),
           ListTile(

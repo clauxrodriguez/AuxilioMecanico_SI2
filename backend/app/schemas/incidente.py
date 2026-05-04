@@ -24,6 +24,7 @@ class IncidenteUpdate(BaseModel):
 
 class AsignarTecnicoRequest(BaseModel):
     empleado_id: str | None = None
+    servicio_id: str | None = None
 
 
 class TecnicoUbicacionUpdate(BaseModel):

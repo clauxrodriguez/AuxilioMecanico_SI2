@@ -101,11 +101,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
                   subtitle: 'Ver mis datos',
                   color: Colors.blue,
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Perfil en desarrollo'),
-                      ),
-                    );
+                    Navigator.pushNamed(context, '/empleado/perfil');
                   },
                 ),
                 _FeatureTile(
@@ -114,11 +110,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
                   subtitle: 'Mis tareas pendientes',
                   color: Colors.orange,
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Tareas en desarrollo'),
-                      ),
-                    );
+                    Navigator.pushNamed(context, '/empleado/asignaciones');
                   },
                 ),
                 _FeatureTile(
@@ -140,11 +132,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
                   subtitle: 'Ver notificaciones',
                   color: Colors.purple,
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Notificaciones en desarrollo'),
-                      ),
-                    );
+                    Navigator.pushNamed(context, '/notificaciones');
                   },
                 ),
               ],
@@ -227,7 +215,9 @@ class _EmployeeInfoCard extends StatelessWidget {
                   radius: 40,
                   backgroundColor: Colors.white,
                   child: Text(
-                    (user?.fullName ?? 'E')[0].toUpperCase(),
+                        (user?.fullName ?? '').isNotEmpty
+                            ? (user?.fullName ?? '')[0].toUpperCase()
+                            : 'E',
                     style: const TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,

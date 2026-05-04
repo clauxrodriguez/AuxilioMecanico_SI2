@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../core/constants.dart';
+import '../models/employee_assignment.dart';
 import '../models/user.dart';
 import '../models/vehicle.dart';
 
@@ -104,6 +105,27 @@ class ApiService {
     }
   }
 
+  /// Obtener el perfil completo del empleado autenticado - GET /api/empleados/me/
+  Future<Map<String, dynamic>> getMyEmployeeProfile() async {
+    final response = await http
+        .get(
+          Uri.parse('${AppConstants.baseUrl}${AppConstants.empleadosEndpoint}/me/'),
+          headers: _getHeaders(),
+        )
+        .timeout(AppConstants.requestTimeout);
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    if (response.statusCode == 404) {
+      throw Exception('El usuario no está asociado a un empleado');
+    }
+    if (response.statusCode == 401) {
+      throw Exception('Token inválido o expirado');
+    }
+    throw Exception('Error al obtener perfil de empleado: ${response.statusCode}');
+  }
+
   Future<List<Vehicle>> getMyVehicles() async {
     final response = await http
         .get(
@@ -118,6 +140,64 @@ class ApiService {
       response,
       (item) => Vehicle.fromJson(item as Map<String, dynamic>),
     );
+  }
+
+  /// Obtener notificaciones del usuario autenticado - GET /api/notificaciones/me/
+  Future<List<Map<String, dynamic>>> getMyNotifications() async {
+    final response = await http
+        .get(
+          Uri.parse('${AppConstants.baseUrl}${AppConstants.notificacionesEndpoint}/me/'),
+          headers: _getHeaders(),
+        )
+        .timeout(AppConstants.requestTimeout);
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+      final items = (decoded['items'] as List<dynamic>? ?? const <dynamic>[]);
+      return items.map((item) => (item as Map).cast<String, dynamic>()).toList();
+    }
+
+    if (response.statusCode == 401) {
+      throw Exception('No autorizado (401)');
+    }
+
+    throw Exception('Error al obtener notificaciones: ${response.statusCode}');
+  }
+
+  /// Marcar notificación como leída - PATCH /api/notificaciones/{id}/leer
+  Future<Map<String, dynamic>> markNotificationAsRead(String id) async {
+    final response = await http
+        .patch(
+          Uri.parse('${AppConstants.baseUrl}${AppConstants.notificacionesEndpoint}/$id/leer'),
+          headers: _getHeaders(),
+        )
+        .timeout(AppConstants.requestTimeout);
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+
+    throw Exception('Error al marcar notificación como leída: ${response.statusCode}');
+  }
+
+  /// Obtener asignaciones del empleado autenticado - GET /api/empleados/me/asignaciones
+  /// Devuelve una lista de mapas con los datos de las asignaciones/incidentes.
+  Future<List<Map<String, dynamic>>> getMyAsignaciones() async {
+    final response = await http
+        .get(
+          Uri.parse('${AppConstants.baseUrl}${AppConstants.empleadosEndpoint}/me/asignaciones'),
+          headers: _getHeaders(),
+        )
+        .timeout(AppConstants.requestTimeout);
+
+    _log('getMyAsignaciones status=${response.statusCode} body=${response.body}');
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
+      return data.map((e) => e as Map<String, dynamic>).toList();
+    }
+    if (response.statusCode == 401) throw Exception('No autorizado (401)');
+    if (response.statusCode >= 500) throw Exception('Error servidor (${response.statusCode})');
+    throw Exception('Error al obtener asignaciones: ${response.statusCode}');
   }
 
   /// Obtener todos los vehículos - GET /api/vehiculos
@@ -316,6 +396,80 @@ class ApiService {
       } else {
         throw Exception('Error al obtener empleados: ${response.statusCode}');
       }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Obtener empleados asignables preservando el ID real del empleado.
+  Future<List<EmployeeAssignment>> getAssignableEmployees() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('${AppConstants.baseUrl}${AppConstants.empleadosEndpoint}'),
+            headers: _getHeaders(),
+          )
+          .timeout(AppConstants.requestTimeout);
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data
+            .map((e) => EmployeeAssignment.fromJson(e as Map<String, dynamic>))
+            .where((employee) => employee.id.isNotEmpty)
+            .toList();
+      } else if (response.statusCode == 403) {
+        throw Exception('No tienes permiso para acceder');
+      } else {
+        throw Exception('Error al obtener empleados: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Obtener lista de servicios - GET /api/servicios/
+  Future<List<Map<String, dynamic>>> getServicios() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('${AppConstants.baseUrl}/api/servicios/'),
+            headers: _getHeaders(),
+          )
+          .timeout(AppConstants.requestTimeout);
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.cast<Map<String, dynamic>>();
+      } else if (response.statusCode == 403) {
+        throw Exception('No tienes permiso para acceder a los servicios');
+      } else {
+        throw Exception('Error al obtener servicios: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Asignar técnico/servicio a un incidente - POST /api/incidentes/{id}/asignacion
+  Future<Map<String, dynamic>> assignTecnico(String incidenteId, Map<String, dynamic> payload) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('${AppConstants.baseUrl}/api/incidentes/$incidenteId/asignacion'),
+            headers: _getHeaders(),
+            body: jsonEncode(payload),
+          )
+          .timeout(AppConstants.requestTimeout);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+
+      if (response.statusCode == 403) {
+        throw Exception('No tienes permiso para asignar solicitudes');
+      }
+
+      throw Exception('Error al asignar técnico: ${response.statusCode}');
     } catch (e) {
       rethrow;
     }

@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "20260503_01_clear_old_fcm_tokens"
-down_revision = "20260429_consolidated"
+down_revision = "20260429_01_add_fcm"
 branch_labels = None
 depends_on = None
 

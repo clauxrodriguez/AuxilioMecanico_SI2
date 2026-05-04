@@ -13,6 +13,7 @@ from app.routers import (
     clientes,
     vehiculos,
     incidentes,
+    notificaciones,
     servicios,
     empresa,
     pagos,
@@ -49,6 +50,7 @@ app.include_router(empleados.router, prefix="/api")
 app.include_router(servicios.router, prefix="/api")
 app.include_router(vehiculos.router, prefix="/api")
 app.include_router(incidentes.router, prefix="/api")
+app.include_router(notificaciones.router, prefix="/api")
 app.include_router(empresa.router, prefix="/api")
 app.include_router(pagos.router)
 

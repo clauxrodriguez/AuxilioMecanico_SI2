@@ -56,6 +56,7 @@ class User(Base):
     date_joined: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     empleado: Mapped[Empleado | None] = relationship(back_populates="usuario", uselist=False)
+    notificaciones: Mapped[list[Notificacion]] = relationship(back_populates="usuario")
 
 
 class Empresa(Base):
@@ -177,6 +178,22 @@ class Cliente(Base):
     @property
     def username(self) -> str | None:
         return self.usuario.username if self.usuario else None
+
+
+class Notificacion(Base):
+    __tablename__ = "notificacion"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("auth_user.id", ondelete="CASCADE"), nullable=False)
+    titulo: Mapped[str] = mapped_column(String(150), nullable=False)
+    mensaje: Mapped[str] = mapped_column(Text, nullable=False)
+    tipo: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    data_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    leida: Mapped[bool] = mapped_column(Boolean, default=False)
+    leida_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    creada_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    usuario: Mapped[User] = relationship(back_populates="notificaciones")
 
 
 class Vehiculo(Base):

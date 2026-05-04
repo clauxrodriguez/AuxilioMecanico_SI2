@@ -4,15 +4,11 @@ import 'package:provider/provider.dart';
 import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/app_drawer.dart';
+import 'admin_home_screen.dart';
 
-class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+class AdminProfileScreen extends StatelessWidget {
+  const AdminProfileScreen({super.key});
 
-  @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
-}
-
-class _ProfileScreenState extends State<ProfileScreen> {
   String _initialFrom(User? user) {
     final fullName = user?.fullName.trim() ?? '';
     if (fullName.isNotEmpty) {
@@ -33,74 +29,61 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Mi perfil')),
       drawer: const AppDrawer(),
-      body: _ClientProfileView(user: user, initial: _initialFrom(user)),
-    );
-  }
-}
-
-class _ClientProfileView extends StatelessWidget {
-  final User? user;
-  final String initial;
-
-  const _ClientProfileView({required this.user, required this.initial});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _ProfileHeader(
-          title: 'Portal de cliente',
-          subtitle: 'Perfil y gestión de solicitudes',
-          user: user,
-          initial: initial,
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Mi perfil', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 12),
-                _InfoRow(label: 'Usuario', value: user?.username ?? 'N/A'),
-                _InfoRow(label: 'Correo', value: user?.email ?? 'N/A'),
-                _InfoRow(label: 'Nombre', value: user?.fullName),
-                _InfoRow(label: 'Rol', value: user?.role.toUpperCase() ?? 'N/A'),
-              ],
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _ProfileHeader(
+            title: 'Panel Administrador',
+            subtitle: 'Perfil del taller',
+            user: user,
+            initial: _initialFrom(user),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Datos del administrador', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 12),
+                  _InfoRow(label: 'Usuario', value: user?.username ?? 'N/A'),
+                  _InfoRow(label: 'Correo', value: user?.email ?? 'N/A'),
+                  _InfoRow(label: 'Nombre', value: user?.fullName),
+                  _InfoRow(label: 'Rol', value: user?.role.toUpperCase() ?? 'N/A'),
+                ],
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.report),
-            title: const Text('Solicitar auxilio'),
-            subtitle: const Text('Crear una nueva solicitud de auxilio'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.pushNamed(context, '/solicitud-auxilio'),
+          const SizedBox(height: 16),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.notifications),
+              title: const Text('Mis notificaciones'),
+              subtitle: const Text('Ver avisos y solicitudes recientes'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.pushNamed(context, '/notificaciones'),
+            ),
           ),
-        ),
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.history),
-            title: const Text('Seguimiento de solicitudes'),
-            subtitle: const Text('Ver tus solicitudes y su estado'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.pushNamed(context, '/historial-incidentes'),
+          const SizedBox(height: 16),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.dashboard),
+              title: const Text('Abrir panel de solicitudes'),
+              subtitle: const Text('Ir a la vista operativa del administrador'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const AdminHomeScreen(initialTab: 1),
+                  ),
+                );
+              },
+            ),
           ),
-        ),
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.notifications),
-            title: const Text('Mis notificaciones'),
-            subtitle: const Text('Ver alertas y avisos recibidos'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.pushNamed(context, '/notificaciones'),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

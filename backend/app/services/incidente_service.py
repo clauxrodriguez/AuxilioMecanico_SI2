@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.db.models import Cliente, Diagnostico, Empleado, Evidencia, Incidente, Vehiculo
 from app.schemas.incidente import IncidenteCreate, IncidenteUpdate, TecnicoCercanoOut, TecnicoUbicacionUpdate
 from app.services.asignacion_service import create_asignacion, get_active_asignacion_for_incidente
-from app.services.notification_service import notify_assignment_to_employee
+from app.services.notification_service import notify_assignment_to_employee, notify_assignment_to_client, notify_new_incident
 from sqlalchemy import select
 
 
@@ -45,6 +45,13 @@ def create_incidente(db: Session, payload: IncidenteCreate, cliente_id: str | No
     db.add(obj)
     db.commit()
     db.refresh(obj)
+    # notify admins that a new incident/solicitud was created
+    try:
+        notify_new_incident(db, obj)
+    except Exception:
+        # do not fail creation if notification fails
+        pass
+
     return obj
 
 
@@ -71,7 +78,13 @@ def update_incidente(db: Session, incidente: Incidente, payload: IncidenteUpdate
     return incidente
 
 
-def assign_tecnico(db: Session, incidente: Incidente, empleado_id: str | None = None, actor: Empleado | None = None) -> Incidente:
+def assign_tecnico(
+    db: Session,
+    incidente: Incidente,
+    empleado_id: str | None = None,
+    servicio_id: str | None = None,
+    actor: Empleado | None = None,
+) -> Incidente:
     # Create an operational assignment record (asignacion_servicio) instead of
     # mutating the incidente table. The assignment service will validate the
     # empleado and set empresa_id automatically.
@@ -93,7 +106,13 @@ def assign_tecnico(db: Session, incidente: Incidente, empleado_id: str | None = 
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No hay técnicos disponibles para asignar")
         empleado = candidato
 
-    asign = create_asignacion(db, incidente=incidente, empleado_id=empleado.id, empresa_id=empleado.empresa_id)
+    asign = create_asignacion(
+        db,
+        incidente=incidente,
+        empleado_id=empleado.id,
+        servicio_id=servicio_id,
+        empresa_id=empleado.empresa_id,
+    )
     if incidente.estado == "pendiente":
         incidente.estado = "en_proceso"
         db.add(incidente)
@@ -105,6 +124,12 @@ def assign_tecnico(db: Session, incidente: Incidente, empleado_id: str | None = 
         notify_assignment_to_employee(db, asign.id)
     except Exception:
         # do not fail assignment if notification fails
+        pass
+    # notify the cliente that su solicitud fue asignada
+    try:
+        notify_assignment_to_client(db, asign.id)
+    except Exception:
+        # do not fail assignment if client notification fails
         pass
 
     # return incidente (unchanged except estado)
