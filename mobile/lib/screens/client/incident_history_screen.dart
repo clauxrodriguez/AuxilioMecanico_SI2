@@ -75,44 +75,64 @@ class _IncidentHistoryScreenState extends State<IncidentHistoryScreen> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          TextButton(
-                            onPressed: () {
-                              Navigator.pushNamed(
-                                context,
-                                '/tracking',
-                                arguments: {'incidente_id': id},
-                              );
-                            },
-                            child: const Text('Ver seguimiento'),
-                          ),
-                          const SizedBox(width: 8),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.pushNamed(
-                                context,
-                                '/detalle-incidente',
-                                arguments: {'incidente_id': id},
-                              );
-                            },
-                            child: const Text('Ver detalle'),
-                          ),
-                          const SizedBox(width: 8),
-                          ElevatedButton(
-                            onPressed: () async {
-                              await Navigator.pushNamed(
-                                context,
-                                '/agregar-evidencia',
-                                arguments: {'incidente_id': id},
-                              );
-                              // refrescar lista
-                              setState(() => _loadIncidentes());
-                            },
-                            child: const Text('Agregar evidencia'),
-                          ),
-                        ],
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final maxW = constraints.maxWidth;
+                          final btnWidthFactor = maxW < 360 ? 0.48 : (maxW < 600 ? 0.47 : 0.32);
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  FractionallySizedBox(
+                                    widthFactor: btnWidthFactor,
+                                    child: TextButton(
+                                      onPressed: () {
+                                        Navigator.pushNamed(
+                                          context,
+                                          '/tracking',
+                                          arguments: {'incidente_id': id},
+                                        );
+                                      },
+                                      child: const Text('Ver seguimiento'),
+                                    ),
+                                  ),
+                                  FractionallySizedBox(
+                                    widthFactor: btnWidthFactor,
+                                    child: TextButton(
+                                      onPressed: () {
+                                        Navigator.pushNamed(
+                                          context,
+                                          '/detalle-incidente',
+                                          arguments: {'incidente_id': id},
+                                        );
+                                      },
+                                      child: const Text('Ver detalle'),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              FractionallySizedBox(
+                                widthFactor: 1.0,
+                                child: ElevatedButton(
+                                  onPressed: () async {
+                                    await Navigator.pushNamed(
+                                      context,
+                                      '/agregar-evidencia',
+                                      arguments: {'incidente_id': id},
+                                    );
+                                    // refrescar lista
+                                    setState(() => _loadIncidentes());
+                                  },
+                                  child: const Text('Agregar evidencia'),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
                     ],
                   ),

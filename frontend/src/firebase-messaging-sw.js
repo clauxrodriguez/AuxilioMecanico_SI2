@@ -23,12 +23,21 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message:', payload);
 
-  const notificationTitle = payload.notification?.title || 'Nueva Notificación';
+  const data = payload.data || {};
+  const titulo = data.titulo || payload.notification?.title || 'Nueva Notificación';
+  const empleadoNombre = data.actor_nombre || data.empleado_nombre || null;
+
+  const notificationTitle = titulo;
+  const notificationBody =
+    payload.notification?.body ||
+    data.message ||
+    (empleadoNombre ? `El empleado '${empleadoNombre}' completó su asignación` : 'Tienes una nueva notificación');
+
   const notificationOptions = {
-    body: payload.notification?.body || 'Tienes una nueva notificación',
+    body: notificationBody,
     icon: '/assets/icon.png',
     badge: '/assets/badge.png',
-    data: payload.data || {},
+    data: data,
     tag: 'auxiliomecanico',
     requireInteraction: true,
   };
@@ -41,7 +50,7 @@ self.addEventListener('notificationclick', (event) => {
   console.log('[firebase-messaging-sw.js] Notification clicked:', event);
   event.notification.close();
 
-  const incidentId = event.notification.data?.incidente_id;
+  const incidentId = event.notification.data?.incidente_id || event.notification?.data?.incidente_id;
   const urlToOpen = incidentId ? `/app/incidentes/${incidentId}` : '/app/solicitudes';
 
   event.waitUntil(

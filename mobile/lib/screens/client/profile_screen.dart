@@ -13,6 +13,12 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  @override
+  void initState() {
+    super.initState();
+    debugPrint('🔷 [ProfileScreen] initState - widget being initialized');
+  }
+
   String _initialFrom(User? user) {
     final fullName = user?.fullName.trim() ?? '';
     if (fullName.isNotEmpty) {
@@ -27,14 +33,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = Provider.of<AuthProvider>(context);
-    final user = auth.user;
+    debugPrint('🔷 [ProfileScreen] build() starting...');
+    try {
+      final auth = Provider.of<AuthProvider>(context);
+      final user = auth.user;
+      debugPrint('🔷 [ProfileScreen] build() - user: $user');
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Mi perfil')),
-      drawer: const AppDrawer(),
-      body: _ClientProfileView(user: user, initial: _initialFrom(user)),
-    );
+      return Scaffold(
+        appBar: AppBar(title: const Text('Mi perfil')),
+        drawer: const AppDrawer(),
+        body: _ClientProfileView(user: user, initial: _initialFrom(user)),
+      );
+    } catch (e, stackTrace) {
+      debugPrint('❌ [ProfileScreen] Error en build: $e');
+      debugPrint('Stack: $stackTrace');
+      return Scaffold(
+        appBar: AppBar(title: const Text('Error')),
+        body: Center(
+          child: Text('Error cargando perfil: $e'),
+        ),
+      );
+    }
   }
 }
 
@@ -46,62 +65,71 @@ class _ClientProfileView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _ProfileHeader(
-          title: 'Portal de cliente',
-          subtitle: 'Perfil y gestión de solicitudes',
-          user: user,
-          initial: initial,
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Mi perfil', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 12),
-                _InfoRow(label: 'Usuario', value: user?.username ?? 'N/A'),
-                _InfoRow(label: 'Correo', value: user?.email ?? 'N/A'),
-                _InfoRow(label: 'Nombre', value: user?.fullName),
-                _InfoRow(label: 'Rol', value: user?.role.toUpperCase() ?? 'N/A'),
-              ],
+    debugPrint('🔷 [_ClientProfileView] build() - user: $user');
+    try {
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _ProfileHeader(
+            title: 'Portal de cliente',
+            subtitle: 'Perfil y gestión de solicitudes',
+            user: user,
+            initial: initial,
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Mi perfil', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 12),
+                  _InfoRow(label: 'Usuario', value: user?.username ?? 'N/A'),
+                  _InfoRow(label: 'Correo', value: user?.email ?? 'N/A'),
+                  _InfoRow(label: 'Nombre', value: user?.fullName),
+                  _InfoRow(label: 'Rol', value: user?.role.toUpperCase() ?? 'N/A'),
+                ],
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.report),
-            title: const Text('Solicitar auxilio'),
-            subtitle: const Text('Crear una nueva solicitud de auxilio'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.pushNamed(context, '/solicitud-auxilio'),
+          const SizedBox(height: 16),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.report),
+              title: const Text('Solicitar auxilio'),
+              subtitle: const Text('Crear una nueva solicitud de auxilio'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.pushNamed(context, '/solicitud-auxilio'),
+            ),
           ),
-        ),
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.history),
-            title: const Text('Seguimiento de solicitudes'),
-            subtitle: const Text('Ver tus solicitudes y su estado'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.pushNamed(context, '/historial-incidentes'),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.history),
+              title: const Text('Seguimiento de solicitudes'),
+              subtitle: const Text('Ver tus solicitudes y su estado'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.pushNamed(context, '/historial-incidentes'),
+            ),
           ),
-        ),
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.notifications),
-            title: const Text('Mis notificaciones'),
-            subtitle: const Text('Ver alertas y avisos recibidos'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.pushNamed(context, '/notificaciones'),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.notifications),
+              title: const Text('Mis notificaciones'),
+              subtitle: const Text('Ver alertas y avisos recibidos'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.pushNamed(context, '/notificaciones'),
+            ),
           ),
-        ),
-      ],
-    );
+        ],
+      );
+    } catch (e, stackTrace) {
+      debugPrint('❌ [_ClientProfileView] Error: $e');
+      debugPrint('Stack: $stackTrace');
+      return Center(
+        child: Text('Error en vista: $e'),
+      );
+    }
   }
 }
 
@@ -138,7 +166,12 @@ class _ProfileHeader extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
                   const SizedBox(height: 8),
-                  Text(user?.fullName ?? user?.username ?? 'Usuario', style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Text(
+                    user?.fullName ?? user?.username ?? 'Usuario',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             ),

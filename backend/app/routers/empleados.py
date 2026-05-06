@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, Upload
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import AsignacionServicio, Empresa, User
+from app.db.models import AsignacionServicio, Empresa, Servicio, User
 from app.db.session import get_db
 from app.deps.auth import get_base_url, get_current_user, require_permission, resolve_tenant_empresa_id
 from app.schemas.empleado import MiAsignacionOut
@@ -138,6 +138,17 @@ def empleados_mis_asignaciones(
         )
         rows = db.execute(stmt).scalars().all()
 
+        servicio_ids = {str(asignacion.servicio_id) for asignacion in rows if asignacion.servicio_id}
+        servicio_nombres: dict[str, str] = {}
+        if servicio_ids:
+            servicios = db.execute(
+                select(Servicio.id_servicio, Servicio.nombre).where(
+                    Servicio.empresa_id == empresa_id,
+                    Servicio.id_servicio.in_(servicio_ids),
+                )
+            ).all()
+            servicio_nombres = {str(servicio_id): nombre for servicio_id, nombre in servicios}
+
         result: list[MiAsignacionOut] = []
         for asignacion in rows:
             incidente = asignacion.incidente
@@ -152,7 +163,7 @@ def empleados_mis_asignaciones(
                     fecha_asignacion=asignacion.fecha_asignacion.isoformat(),
                     estado_tarea=asignacion.estado_tarea,
                     servicio_id=asignacion.servicio_id,
-                    servicio_nombre=None,
+                    servicio_nombre=servicio_nombres.get(str(asignacion.servicio_id)),
                 )
             )
 

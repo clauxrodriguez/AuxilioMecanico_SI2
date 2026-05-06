@@ -15,8 +15,16 @@ class AppDrawer extends StatelessWidget {
       child: Column(
         children: [
           UserAccountsDrawerHeader(
-            accountName: Text(auth.user?.fullName ?? 'Usuario'),
-            accountEmail: Text(auth.user?.email ?? ''),
+            accountName: Text(
+              auth.user?.fullName ?? 'Usuario',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            accountEmail: Text(
+              auth.user?.email ?? '',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           ListTile(
             leading: const Icon(Icons.home),

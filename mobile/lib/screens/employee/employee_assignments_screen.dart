@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../data/api_service.dart';
 import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/location_provider.dart';
 import '../../widgets/app_drawer.dart';
 
 class EmployeeAssignmentsScreen extends StatefulWidget {
@@ -66,7 +67,7 @@ class _EmployeeAssignmentsScreenState extends State<EmployeeAssignmentsScreen> {
     bool attended,
   ) {
     final attendedStatuses = {'atendido', 'cerrado', 'finalizado', 'completado'};
-    final pendingStatuses = {'pendiente', 'en_proceso', 'asignado', 'aceptada'};
+    final pendingStatuses = {'pendiente', 'asignada', 'en_proceso', 'asignado', 'aceptada'};
     return items.where((item) {
       final status = (item['incidente_estado'] ?? '').toString().toLowerCase();
       if (attended) {
@@ -132,10 +133,11 @@ class _EmployeeAssignmentsScreenState extends State<EmployeeAssignmentsScreen> {
                 // Active assignments
                 _AssignmentsSection(
                   title: 'Solicitudes activas',
-                  subtitle: 'Pendientes o en proceso',
+                  subtitle: 'Pendientes, asignadas o en proceso',
                   count: activeAssignments.length,
                   assignments: activeAssignments,
                   isCompleted: false,
+                  onRefresh: _refresh,
                 ),
                 const SizedBox(height: 24),
                 // Completed assignments
@@ -145,6 +147,7 @@ class _EmployeeAssignmentsScreenState extends State<EmployeeAssignmentsScreen> {
                   count: completedAssignments.length,
                   assignments: completedAssignments,
                   isCompleted: true,
+                  onRefresh: _refresh,
                 ),
               ],
             ),
@@ -194,6 +197,7 @@ class _AssignmentsSection extends StatelessWidget {
   final int count;
   final List<Map<String, dynamic>> assignments;
   final bool isCompleted;
+  final Future<void> Function()? onRefresh;
 
   const _AssignmentsSection({
     required this.title,
@@ -201,6 +205,7 @@ class _AssignmentsSection extends StatelessWidget {
     required this.count,
     required this.assignments,
     required this.isCompleted,
+    this.onRefresh,
   });
 
   @override
@@ -244,7 +249,7 @@ class _AssignmentsSection extends StatelessWidget {
               ),
             ),
           )
-        else
+          else
           Column(
             children: assignments.map((assignment) {
               return Card(
@@ -296,18 +301,79 @@ class _AssignmentsSection extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      Row(
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
                         children: [
                           _DetailChip(
                             icon: Icons.info,
                             label: assignment['servicio_nombre'] ?? 'Sin servicio',
                           ),
-                          const SizedBox(width: 8),
                           _DetailChip(
                             icon: Icons.calendar_today,
                             label: assignment['fecha_asignacion'] ?? 'Sin fecha',
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 12),
+                      // Mostrar botones según estado: si está en_proceso -> ver detalle + marcar atendida
+                      // si no está en_proceso -> mostrar sólo "Comenzar tarea" (que abre el diálogo para iniciar)
+                      Builder(
+                        builder: (ctx) {
+                          final status = (assignment['incidente_estado'] ?? '').toString().toLowerCase();
+                          final maxW = MediaQuery.of(ctx).size.width;
+                          final btnWidthFactor = maxW < 360 ? 0.9 : (maxW < 600 ? 0.46 : 0.32);
+
+                          if (status == 'en_proceso') {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    FractionallySizedBox(
+                                      widthFactor: btnWidthFactor,
+                                      child: ElevatedButton(
+                                        onPressed: () => _openDetailDialog(context, assignment),
+                                        child: const Text('Ver detalle'),
+                                      ),
+                                    ),
+                                    FractionallySizedBox(
+                                      widthFactor: btnWidthFactor,
+                                      child: ElevatedButton(
+                                        onPressed: () => _openDetailDialog(context, assignment, preselect: 'atendido'),
+                                        child: const Text('Marcar atendida'),
+                                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            );
+                          }
+
+                          // Si el estado es 'atendido' mostrar sólo Ver detalle (modo sólo lectura)
+                          if (status == 'atendido') {
+                            return SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: () => _openDetailDialog(context, assignment),
+                                child: const Text('Ver detalle'),
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
+                              ),
+                            );
+                          }
+
+                          // Estado distinto de en_proceso y distinto de atendido: mostrar sólo comenzar tarea
+                          return SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: () => _openDetailDialog(context, assignment, preselect: 'en_proceso'),
+                              child: const Text('Comenzar tarea'),
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -349,4 +415,268 @@ class _DetailChip extends StatelessWidget {
       ),
     );
   }
+}
+
+// Helper to open detail dialog and allow changing estado
+void _openDetailDialog(BuildContext context, Map<String, dynamic> assignment, {String? preselect}) {
+  final auth = Provider.of<AuthProvider>(context, listen: false);
+  final token = auth.token;
+  if (token == null) {
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No autorizado')));
+    return;
+  }
+
+  showDialog<void>(
+    context: context,
+    builder: (context) {
+      return FutureBuilder<Map<String, dynamic>>(
+        future: ApiService(token: token).getIncidente((assignment['incidente_id'] ?? assignment['incidente'] ?? '').toString()),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const AlertDialog(content: SizedBox(height: 120, child: Center(child: CircularProgressIndicator())));
+          }
+
+          if (snapshot.hasError || !snapshot.hasData) {
+            return AlertDialog(
+              title: const Text('Detalle'),
+              content: const Text('No se pudo cargar el detalle de la solicitud'),
+              actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar'))],
+            );
+          }
+
+          final detalle = snapshot.data!;
+          String estadoSeleccionado = preselect ?? (detalle['estado'] ?? 'en_proceso').toString();
+
+          return StatefulBuilder(
+            builder: (context, setState) {
+              final latController = TextEditingController();
+              final lonController = TextEditingController();
+              bool isProcessing = false;
+
+              final bool isReadOnlyDetail = preselect == null && (detalle['estado'] ?? '').toString().toLowerCase() == 'atendido';
+
+              return AlertDialog(
+                title: const Text('Detalle de solicitud'),
+                content: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(detalle['tipo'] ?? 'Solicitud', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Text(detalle['descripcion'] ?? 'Sin descripción'),
+                      const SizedBox(height: 12),
+                      Text('ID: ${detalle['id'] ?? ''}'),
+                      const SizedBox(height: 6),
+                      Text('Estado actual: ${detalle['estado'] ?? ''}'),
+                      const SizedBox(height: 6),
+                      Text('Vehículo: ${detalle['vehiculo_id'] ?? 'N/A'}'),
+                      const SizedBox(height: 6),
+                      Text('Prioridad: ${detalle['prioridad'] ?? 'N/A'}'),
+                      const SizedBox(height: 6),
+                      Text('Ubicación incidente: ${detalle['latitud'] ?? 'N/A'}, ${detalle['longitud'] ?? 'N/A'}'),
+                      const SizedBox(height: 12),
+                      // Mostrar controles de cambio sólo si este diálogo fue invocado para cambiar estado (preselect != null)
+                      if (preselect != null) ...[
+                        const Text('Cambiar estado'),
+                        DropdownButton<String>(
+                          value: estadoSeleccionado,
+                          items: const [
+                            DropdownMenuItem(value: 'en_proceso', child: Text('En proceso')),
+                            DropdownMenuItem(value: 'atendido', child: Text('Atendido')),
+                          ],
+                          onChanged: (v) {
+                            if (v != null) setState(() => estadoSeleccionado = v);
+                          },
+                        ),
+                        // Si está en "en_proceso", mostrar inputs para lat/lon
+                        if (estadoSeleccionado == 'en_proceso') ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Tu Ubicación (para pruebas)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                const SizedBox(height: 8),
+                                TextField(
+                                  controller: latController,
+                                  decoration: InputDecoration(
+                                    labelText: 'Latitud (o dejar vacío)',
+                                    hintText: 'Ej: 10.5234',
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                                    isDense: true,
+                                  ),
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                                ),
+                                const SizedBox(height: 8),
+                                TextField(
+                                  controller: lonController,
+                                  decoration: InputDecoration(
+                                    labelText: 'Longitud (o dejar vacío)',
+                                    hintText: 'Ej: -66.4321',
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                                    isDense: true,
+                                  ),
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text('Si dejas vacío, se usará tu ubicación GPS', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                      // Si el estado actual es "en_proceso", mostrar botón para ver seguimiento
+                      if ((detalle['estado'] ?? '').toString().toLowerCase() == 'en_proceso') ...[
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              Navigator.pushNamed(
+                                context,
+                                '/empleado/tracking',
+                                arguments: detalle['id'].toString(),
+                              );
+                            },
+                            icon: const Icon(Icons.map),
+                            label: const Text('Ver Mi Seguimiento'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                actions: isReadOnlyDetail
+                    ? []
+                    : [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Cerrar'),
+                        ),
+                        if (preselect != null)
+                          ElevatedButton(
+                            onPressed: isProcessing
+                                ? null
+                                : () async {
+                                    try {
+                                      setState(() => isProcessing = true);
+                                      double? latitud, longitud;
+
+                                      if (estadoSeleccionado == 'en_proceso') {
+                                        if (latController.text.isNotEmpty && lonController.text.isNotEmpty) {
+                                          try {
+                                            latitud = double.parse(latController.text);
+                                            longitud = double.parse(lonController.text);
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(content: Text('Usando ubicación manual')),
+                                            );
+                                          } catch (e) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(content: Text('Valores de ubicación inválidos')),
+                                            );
+                                            setState(() => isProcessing = false);
+                                            return;
+                                          }
+                                        } else {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text('Obteniendo tu ubicación GPS...')),
+                                          );
+                                          final locationProvider = Provider.of<LocationProvider>(context, listen: false);
+                                          final position = await locationProvider.getCurrentLocation();
+                                          if (position != null) {
+                                            latitud = position.latitude;
+                                            longitud = position.longitude;
+                                          } else {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(content: Text('No se pudo obtener ubicación')),
+                                            );
+                                            setState(() => isProcessing = false);
+                                            return;
+                                          }
+                                        }
+                                      }
+
+                                      await ApiService(token: token).updateIncidenteEstado(
+                                        detalle['id'].toString(),
+                                        estadoSeleccionado,
+                                        latitud: latitud,
+                                        longitud: longitud,
+                                      );
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Estado actualizado')),
+                                      );
+
+                                      if (estadoSeleccionado == 'en_proceso') {
+                                        setState(() => isProcessing = false);
+                                        showDialog(
+                                          context: context,
+                                          builder: (ctx) => AlertDialog(
+                                            title: const Text('¡Excelente!'),
+                                            content: const Text(
+                                              'Tu ubicación ha sido enviada. ¿Deseas ver el mapa de seguimiento?',
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () {
+                                                  Navigator.pop(ctx);
+                                                  Navigator.pop(context);
+                                                  if (context.findAncestorStateOfType<_EmployeeAssignmentsScreenState>() != null) {
+                                                    context.findAncestorStateOfType<_EmployeeAssignmentsScreenState>()!._refresh();
+                                                  }
+                                                },
+                                                child: const Text('Después'),
+                                              ),
+                                              ElevatedButton(
+                                                onPressed: () {
+                                                  Navigator.pop(ctx);
+                                                  Navigator.pop(context);
+                                                  Navigator.pushNamed(
+                                                    context,
+                                                    '/empleado/tracking',
+                                                    arguments: detalle['id'].toString(),
+                                                  );
+                                                },
+                                                child: const Text('Ver Seguimiento'),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }
+
+                                      setState(() => isProcessing = false);
+                                      Navigator.pop(context);
+                                      if (context.findAncestorStateOfType<_EmployeeAssignmentsScreenState>() != null) {
+                                        context.findAncestorStateOfType<_EmployeeAssignmentsScreenState>()!._refresh();
+                                      }
+                                    } catch (e) {
+                                      setState(() => isProcessing = false);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Error: $e')),
+                                      );
+                                    }
+                                  },
+                            child: Text(
+                              estadoSeleccionado == 'en_proceso'
+                                  ? 'Enviar ubicación actual'
+                                  : (estadoSeleccionado == 'atendido' ? 'Marcar atendida' : 'Guardar'),
+                            ),
+                          ),
+                      ],
+              );
+            },
+          );
+        },
+      );
+    },
+  );
 }

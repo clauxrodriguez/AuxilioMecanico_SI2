@@ -41,8 +41,11 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _isLoading = false);
 
       if (success) {
-        // La navegación se maneja automáticamente en AuthCheck
-        // gracias a que isAuthenticated cambió
+        // Navegar explícitamente al perfil para evitar depender solo del rebuild
+        debugPrint('✅ Login exitoso, navegando a /perfil...');
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/perfil');
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -57,7 +60,9 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.transparent,
       body: Container(
+        constraints: const BoxConstraints.expand(),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -213,33 +218,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     },
                   ),
                   const SizedBox(height: 30),
-                  // Información de desarrollo
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          '📱 Demo',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.white70,
-                              ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Usuario: admin\nContraseña: 123',
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.white70,
-                                fontStyle: FontStyle.italic,
-                              ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  // Demo container removed
+                  const SizedBox.shrink(),
                 ],
               ),
             ),

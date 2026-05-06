@@ -70,4 +70,36 @@ def get_active_asignacion_for_incidente(db: Session, incidente_id: str) -> Asign
     return res
 
 
-__all__ = ["create_asignacion", "get_active_asignacion_for_incidente"]
+def get_active_asignacion_for_empleado(db: Session, empleado_id: str) -> AsignacionServicio | None:
+    stmt = select(AsignacionServicio).where(
+        AsignacionServicio.empleado_id == empleado_id,
+        AsignacionServicio.estado_tarea.in_(["asignada", "aceptada", "en_proceso"]),
+    ).limit(1)
+    return db.execute(stmt).scalars().first()
+
+
+def close_active_asignacion_for_incidente(db: Session, incidente_id: str) -> AsignacionServicio | None:
+    asign = get_active_asignacion_for_incidente(db, incidente_id)
+    if not asign:
+        return None
+
+    asign.estado_tarea = "atendido"
+    asign.fecha_cierre = datetime.now(timezone.utc)
+
+    empleado = db.get(Empleado, asign.empleado_id)
+    if empleado:
+        empleado.disponible = True
+        db.add(empleado)
+
+    db.add(asign)
+    db.commit()
+    db.refresh(asign)
+    return asign
+
+
+__all__ = [
+    "create_asignacion",
+    "get_active_asignacion_for_incidente",
+    "get_active_asignacion_for_empleado",
+    "close_active_asignacion_for_incidente",
+]

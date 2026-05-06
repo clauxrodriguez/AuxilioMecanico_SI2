@@ -20,8 +20,9 @@ from app.services.cliente_service import get_cliente_for_user
 from app.services.permission_service import resolve_employee
 from app.services.incidente_service import (
     assign_tecnico,
+    close_active_asignacion_for_incidente,
     list_incidentes,
-    list_tecnicos_cercanos,
+    list_tecnicos_disponibles,
     create_incidente,
     get_incidente_or_404,
     get_incidente_tracking,
@@ -42,6 +43,8 @@ from app.services.transcription_service import transcribe_audio
 import tempfile
 import os
 import shutil
+import logging
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/incidentes", tags=["incidentes"])
 settings = get_settings()
 
@@ -56,18 +59,29 @@ def incidentes_list(db: Session = Depends(get_db)) -> list[IncidenteOut]:
     return list_incidentes(db)
 
 
-@router.get("/tecnicos/cercanos", response_model=list[TecnicoCercanoOut])
-def tecnicos_cercanos(
-    latitud: float = Query(..., ge=-90, le=90),
-    longitud: float = Query(..., ge=-180, le=180),
-    radio_km: float = Query(default=5, gt=0, le=100),
+#@router.get("/tecnicos/cercanos", response_model=list[TecnicoCercanoOut])
+#def tecnicos_cercanos(
+ #   latitud: float = Query(..., ge=-90, le=90),
+  #  longitud: float = Query(..., ge=-180, le=180),
+  #  radio_km: float = Query(default=5, gt=0, le=100),
+  #  user=Depends(get_current_user),
+  #  db: Session = Depends(get_db),
+#) -> list[TecnicoCercanoOut]:
+ #   actor = resolve_employee(db, user)
+ #   empresa_id = None if user.is_staff else (actor.empresa_id if actor else None)
+ #   return list_tecnicos_cercanos(db, latitud=latitud, longitud=longitud, radio_km=radio_km, empresa_id=empresa_id)
+
+@router.get("/tecnicos/disponibles", response_model=list[TecnicoCercanoOut])
+def tecnicos_disponibles(
+    # Cambiamos los parámetros a opcionales (None) para que no bloqueen la petición
+    latitud: float | None = Query(None, ge=-90, le=90),
+    longitud: float | None = Query(None, ge=-180, le=180),
     user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[TecnicoCercanoOut]:
-    actor = resolve_employee(db, user)
-    empresa_id = None if user.is_staff else (actor.empresa_id if actor else None)
-    return list_tecnicos_cercanos(db, latitud=latitud, longitud=longitud, radio_km=radio_km, empresa_id=empresa_id)
-
+    # Para pruebas de asignación mostramos todos los empleados libres no administrativos.
+    # Esto evita que una empresa sin técnicos libres quede con una lista vacía.
+    return list_tecnicos_disponibles(db, empresa_id=None)
 
 @router.post("/", response_model=IncidenteOut, status_code=status.HTTP_201_CREATED)
 def incidentes_create(payload: IncidenteCreate, user=Depends(get_current_user), db: Session = Depends(get_db)) -> IncidenteOut:
@@ -229,6 +243,7 @@ async def incidentes_tracking_ws(websocket: WebSocket, incidente_id: str) -> Non
 def incidentes_patch_estado(
     incidente_id: str,
     payload: IncidentePatchEstado,  # ← Usa un schema específico
+    empleado=Depends(get_current_employee),
     db: Session = Depends(get_db)
 ) -> dict:
     """Actualizar solo el estado del incidente (útil para móvil)"""
@@ -238,7 +253,47 @@ def incidentes_patch_estado(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incidente no encontrado")
     
     inc.estado = payload.estado
+    
+    # Si el empleado cambia a "en_proceso", actualizar ubicación y notificar al cliente
+    if (payload.estado or '').strip().lower() == 'en_proceso':
+        # Actualizar ubicación del empleado si se proporciona
+        if payload.latitud is not None and payload.longitud is not None:
+            try:
+                ubicacion_update = TecnicoUbicacionUpdate(
+                    latitud=payload.latitud,
+                    longitud=payload.longitud
+                )
+                update_tecnico_ubicacion(db, empleado, ubicacion_update)
+            except Exception as e:
+                # No fallar la solicitud si actualización de ubicación falla
+                pass
+        
+        # Notificar al cliente que el empleado está en camino
+        try:
+            from app.services.notification_service import notify_incidente_en_proceso, notify_incidente_iniciado
+            notify_incidente_en_proceso(db, inc.id)
+            # Notificar también a administradores que el técnico inició la atención
+            try:
+                notify_incidente_iniciado(db, inc.id, actor_empleado_id=getattr(empleado, 'id', None))
+            except Exception:
+                logger.exception("Error notificando inicio a administradores para incidente %s", inc.id)
+        except Exception:
+            # No fallar la solicitud si la notificación falla
+            pass
+    
     db.commit()
+
+    # If the incident was marked as attended, notify admins and client
+    try:
+        if (payload.estado or '').strip().lower() == 'atendido':
+            close_active_asignacion_for_incidente(db, inc.id)
+            from app.services.notification_service import notify_incidente_atendido
+            # pass the empleado id who requested the change so admins get the actor name
+            notify_incidente_atendido(db, inc.id, actor_empleado_id=getattr(empleado, 'id', None))
+    except Exception:
+        # do not fail the request if notifications error
+        pass
+
     return {"id": inc.id, "estado": inc.estado}
 
 

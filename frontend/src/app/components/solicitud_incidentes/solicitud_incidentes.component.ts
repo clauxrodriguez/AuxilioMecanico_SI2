@@ -35,7 +35,7 @@ import type { Empleado } from '../../models/user-management.models';
       </header>
 
       <!-- SecciÃ³n: Mi ubicaciÃ³n del tÃ©cnico (solo para empleados/admin) -->
-      <section class="section tech-location" *ngIf="!isClientView && (isEmpleadoView || isAdminView)">
+      <section class="section tech-location" *ngIf="isEmpleadoView">
         <h3>Mi Ubicación (Técnico)</h3>
         <div class="tech-location-content">
           <div class="checkbox-group">
@@ -100,7 +100,7 @@ import type { Empleado } from '../../models/user-management.models';
         </div>
       </section>
 
-      <!-- SecciÃ³n: Lista de incidentes -->
+      
       <!-- Sección: Lista de incidentes (Admin: dos listas) -->
       <ng-container *ngIf="isAdminView">
         <!-- ADMIN: Solicitudes nuevas -->
@@ -108,7 +108,7 @@ import type { Empleado } from '../../models/user-management.models';
           <div class="section-head">
             <div>
               <h3>Solicitudes nuevas</h3>
-              <p class="subtitle">Pendientes o en proceso - {{ incidentsNuevas.length }} solicitud(es)</p>
+              <p class="subtitle">Pendientes, asignadas o en proceso - {{ incidentsNuevas.length }} solicitud(es)</p>
             </div>
             <button class="btn btn-ghost" (click)="cargarIncidentes()" [disabled]="loading">
               {{ loading ? 'Cargando...' : 'Actualizar' }}
@@ -354,32 +354,6 @@ import type { Empleado } from '../../models/user-management.models';
                 </select>
               </div>
 
-              <div *ngIf="cargandoEmpleados" class="loading">Cargando empleados...</div>
-
-              <div *ngIf="!cargandoEmpleados && empleadosAsignables.length > 0" class="empleados-list">
-                <div *ngFor="let empleado of empleadosAsignables" class="tecnico-item">
-                  <div class="tecnico-info">
-                    <div class="tecnico-header">
-                      <strong>{{ empleado.nombre_completo }}</strong>
-                      <span class="disponibilidad disponible">
-                        {{ empleado.cargo_nombre || 'Empleado' }}
-                      </span>
-                    </div>
-                    <div class="tecnico-details">
-                      <span>CI: <strong>{{ empleado.ci }}</strong></span>
-                      <span>Teléfono: <strong>{{ empleado.telefono || 'N/A' }}</strong></span>
-                    </div>
-                  </div>
-                  <button
-                    class="btn btn-primary"
-                    (click)="confirmarAsignacion(empleado)"
-                    [disabled]="asignando"
-                  >
-                    {{ asignando ? 'Asignando...' : 'Asignar' }}
-                  </button>
-                </div>
-              </div>
-
               <div *ngIf="cargandoTecnicos" class="loading">Cargando técnicos cercanos...</div>
 
               <div *ngIf="!cargandoTecnicos && tecnicosCercanos.length === 0" class="empty-tecnico">
@@ -390,9 +364,9 @@ import type { Empleado } from '../../models/user-management.models';
                 <div *ngFor="let tecnico of tecnicosCercanos" class="tecnico-item">
                   <div class="tecnico-info">
                     <div class="tecnico-header">
-                      <strong>{{ tecnico.nombre_completo }}</strong>
-                      <span class="disponibilidad" [class.disponible]="tecnico.disponible">
-                        {{ tecnico.disponible ? '● Disponible' : '○ Ocupado' }}
+                      <strong>{{ tecnico.nombre_completo || 'Sin nombre' }}</strong>
+                      <span class="disponibilidad disponible">
+                        Disponible
                       </span>
                     </div>
                     <div class="tecnico-details">
@@ -917,6 +891,13 @@ export class IncidentesComponent implements OnInit {
   modalIncidentes: IncidenteDto | null = null;
   servicioSeleccionadoId = '';
 
+  // Admin tabs state
+  activeAdminTab: 'pendientes' | 'asignadas' | 'en_proceso' | 'atendidas' = 'pendientes';
+
+  setAdminTab(tab: 'pendientes' | 'asignadas' | 'en_proceso' | 'atendidas'): void {
+    this.activeAdminTab = tab;
+  }
+
   constructor(
     private api: IncidenteApiService,
     public readonly auth: AuthService,
@@ -1036,7 +1017,16 @@ export class IncidentesComponent implements OnInit {
       next: (data) => {
         if (this.isAdminView) {
           // Separar en nuevas y atendidas para admin
-          this.incidentsNuevas = (data || []).filter((inc) => ['pendiente', 'en_proceso', 'asignado', 'aceptada'].includes(inc.estado?.toLowerCase() || ''));
+          // Incluir variantes de 'asignada'/'asignado' además de pendientes y en_proceso
+          this.incidentsNuevas = (data || []).filter((inc) =>
+            [
+              'pendiente',
+              'en_proceso',
+              'asignada',
+              'asignado',
+              'aceptada',
+            ].includes(inc.estado?.toLowerCase() || ''),
+          );
           this.incidentsAtendidas = (data || []).filter((inc) => ['atendido', 'cerrado', 'finalizado', 'completado'].includes(inc.estado?.toLowerCase() || ''));
           this.incidents = data;
         } else {
@@ -1215,25 +1205,25 @@ export class IncidentesComponent implements OnInit {
     if (!this.servicioSeleccionadoId && this.servicios.length > 0) {
       this.servicioSeleccionadoId = this.servicios[0].id_servicio;
     }
-    this.cargarEmpleadosAsignables();
     this.cargarTecnicosCercanos(incidente);
   }
 
-  cargarTecnicosCercanos(incidente: IncidenteDto): void {
-    if (!incidente.latitud || !incidente.longitud) return;
+cargarTecnicosCercanos(incidente: IncidenteDto): void {
+  // Eliminamos la validación de latitud/longitud porque ya no las necesitamos
+  this.cargandoTecnicos = true;
 
-    this.cargandoTecnicos = true;
-    this.api.listTecnicosCercanos(incidente.latitud, incidente.longitud).subscribe({
-      next: (data) => {
-        this.tecnicosCercanos = data;
-        this.cargandoTecnicos = false;
-      },
-      error: () => {
-        this.mostrarMensaje('Error al cargar tÃ©cnicos', 'error');
-        this.cargandoTecnicos = false;
-      },
-    });
-  }
+  // Llamamos a la nueva función del servicio que creamos antes
+  this.api.listTecnicosDisponibles().subscribe({
+    next: (data) => {
+        this.tecnicosCercanos = data || [];
+      this.cargandoTecnicos = false;
+    },
+    error: () => {
+      this.mostrarMensaje('Error al cargar técnicos disponibles', 'error');
+      this.cargandoTecnicos = false;
+    },
+  });
+}
 
   confirmarAsignacion(tecnico: any): void {
     if (!this.modalIncidentes) return;

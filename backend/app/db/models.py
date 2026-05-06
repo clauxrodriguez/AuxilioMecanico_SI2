@@ -54,6 +54,7 @@ class User(Base):
     is_staff: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     date_joined: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    fcm_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     empleado: Mapped[Empleado | None] = relationship(back_populates="usuario", uselist=False)
     notificaciones: Mapped[list[Notificacion]] = relationship(back_populates="usuario")

@@ -11,17 +11,22 @@ self.addEventListener('push', function (event) {
     payload = { notification: { title: 'Notificación', body: event.data?.text() } };
   }
 
-  const title = (payload.notification && payload.notification.title) || 'Notificación';
+  const data = payload.data || {};
+  const tipo = data.tipo || payload.notification?.title || 'Notificación';
+  const empleadoNombre = data.empleado_nombre || data.actor_nombre || null;
+
+  const title = tipo;
+  const body = payload.notification?.body || data.message || (empleadoNombre ? `El empleado '${empleadoNombre}' completó su asignación` : 'Tienes una nueva notificación');
   const options = {
-    body: payload.notification?.body || '',
-    data: payload.data || {},
+    body: body,
+    data: data,
   };
 
   const promiseChain = self.registration.showNotification(title, options).then(() => {
     return self.clients.matchAll({ includeUncontrolled: true, type: 'window' }).then((clients) => {
       for (const client of clients) {
         try {
-          client.postMessage({ type: 'FCM_PUSH', payload });
+          client.postMessage({ type: 'FCM_PUSH', payload: { notification: { title, body }, data } });
         } catch (e) {
           // ignore
         }

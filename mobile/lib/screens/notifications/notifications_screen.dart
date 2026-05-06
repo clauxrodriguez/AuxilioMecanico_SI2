@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../data/api_service.dart';
 import '../../providers/auth_provider.dart';
+import 'notification_detail_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -38,20 +39,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _openNotification(Map<String, dynamic> notification) async {
-    final auth = context.read<AuthProvider>();
-    final token = auth.token;
-    if (token != null && notification['leida'] != true) {
-      try {
-        await ApiService(token: token).markNotificationAsRead(notification['id'].toString());
-      } catch (_) {
-        // No bloqueamos la navegación si falla el marcado.
-      }
-    }
-
-    final data = (notification['data'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
-    final incidentId = data['incidente_id']?.toString();
-    if (incidentId != null && incidentId.isNotEmpty && mounted) {
-      Navigator.pushNamed(context, '/detalle-incidente', arguments: {'incidentId': incidentId});
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => NotificationDetailScreen(
+            notification: notification,
+          ),
+        ),
+      );
     }
   }
 
@@ -143,12 +139,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     title: Text(
                       notification['titulo']?.toString() ?? 'Notificación',
                       style: TextStyle(fontWeight: isRead ? FontWeight.normal : FontWeight.bold),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 4),
-                        Text(notification['mensaje']?.toString() ?? ''),
+                        Text(
+                          notification['mensaje']?.toString() ?? '',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         const SizedBox(height: 6),
                         Text(
                           _formatDate(notification['creada_en']),

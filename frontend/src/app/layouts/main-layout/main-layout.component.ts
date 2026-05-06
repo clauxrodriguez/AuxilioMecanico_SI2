@@ -71,14 +71,13 @@ export class MainLayoutComponent implements OnInit {
 
       // Registrar listener para mensajes en foreground (espera a que Firebase esté inicializado)
       await this.pushNotificationService.registerForegroundMessageListener(
-        (payload) => {
-          console.log('[MainLayoutComponent] Message received:', payload);
+        (msg) => {
+          console.log('[MainLayoutComponent] Message received:', msg);
 
-          // Mostrar toast con la notificación
-          const title = payload.notification?.title || 'Nueva notificación';
-          const body = payload.notification?.body || 'Tienes una nueva notificación';
+          const title = msg.title || 'Nueva notificación';
+          const body = msg.body || 'Tienes una nueva notificación';
 
-          const incidentId = payload.data?.['incidente_id'];
+          const incidentId = msg.incidentId || msg.data?.['incidente_id'];
           if (incidentId) {
             this.toastService.incidentNotification(incidentId, {
               label: 'Ver solicitud',
@@ -92,7 +91,6 @@ export class MainLayoutComponent implements OnInit {
         },
         (incidentId) => {
           console.log('[MainLayoutComponent] Incident notification:', incidentId);
-          // Navegar al incidente
           this.router.navigate(['/app/incidentes', incidentId]);
         }
       );

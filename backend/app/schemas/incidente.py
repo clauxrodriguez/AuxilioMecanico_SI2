@@ -91,3 +91,5 @@ class IncidenteOut(ORMModel):
 class IncidentePatchEstado(BaseModel):
     """para actualizar SOLO el estado (usado en móvil)"""
     estado: str
+    latitud: float | None = None
+    longitud: float | None = None

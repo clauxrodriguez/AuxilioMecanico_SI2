@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../data/api_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/app_drawer.dart';
+import 'employee_assignments_screen.dart';
 
 class EmployeeProfileScreen extends StatefulWidget {
   const EmployeeProfileScreen({super.key});
@@ -177,7 +178,12 @@ class _EmployeeProfileTabState extends State<_EmployeeProfileTab> {
                             const SizedBox(height: 4),
                             Text('Datos reales de tu cuenta de trabajo', style: Theme.of(context).textTheme.bodyMedium),
                             const SizedBox(height: 8),
-                            Text(displayName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                            Text(
+                              displayName,
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ],
                         ),
                       ),
@@ -240,299 +246,25 @@ class _EmployeeProfileTabState extends State<_EmployeeProfileTab> {
   }
 }
 
-class _EmployeeAssignmentsTab extends StatefulWidget {
+class _EmployeeAssignmentsTab extends StatelessWidget {
   const _EmployeeAssignmentsTab();
 
   @override
-  State<_EmployeeAssignmentsTab> createState() => _EmployeeAssignmentsTabState();
-}
-
-class _EmployeeAssignmentsTabState extends State<_EmployeeAssignmentsTab> {
-  late Future<List<Map<String, dynamic>>> _assignmentsFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadAssignments();
-  }
-
-  void _loadAssignments() {
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-    final token = auth.token;
-    if (token != null) {
-      _assignmentsFuture = ApiService(token: token).getMyAsignaciones();
-    } else {
-      _assignmentsFuture = Future.value([]);
-    }
-  }
-
-  Future<void> _refresh() async {
-    setState(_loadAssignments);
-    await _assignmentsFuture;
-  }
-
-  List<Map<String, dynamic>> _splitByStatus(
-    List<Map<String, dynamic>> items,
-    bool attended,
-  ) {
-    final attendedStatuses = {'atendido', 'cerrado', 'finalizado', 'completado'};
-    final pendingStatuses = {'pendiente', 'en_proceso', 'asignado', 'aceptada'};
-    return items.where((item) {
-      final status = (item['incidente_estado'] ?? '').toString().toLowerCase();
-      if (attended) {
-        return attendedStatuses.contains(status);
-      }
-      return pendingStatuses.contains(status) || status.isEmpty;
-    }).toList();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final auth = Provider.of<AuthProvider>(context);
-    final user = auth.user;
-
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _assignmentsFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                const SizedBox(height: 16),
-                Text('Error: ${snapshot.error}'),
-                const SizedBox(height: 16),
-                ElevatedButton(onPressed: _refresh, child: const Text('Reintentar')),
-              ],
-            ),
-          );
-        }
-
-        final assignments = snapshot.data ?? [];
-        final activeAssignments = _splitByStatus(assignments, false);
-        final completedAssignments = _splitByStatus(assignments, true);
-
-        return RefreshIndicator(
-          onRefresh: _refresh,
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 28,
-                        child: Text(
-                          (user?.fullName.isNotEmpty == true
-                                  ? user!.fullName[0]
-                                  : (user?.username.isNotEmpty == true ? user!.username[0] : '?'))
-                              .toUpperCase(),
-                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Tareas del empleado', style: Theme.of(context).textTheme.titleLarge),
-                            const SizedBox(height: 4),
-                            Text('Solicitudes activas y completadas', style: Theme.of(context).textTheme.bodyMedium),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              _AssignmentsSection(
-                title: 'Solicitudes activas',
-                subtitle: 'Pendientes o en proceso',
-                count: activeAssignments.length,
-                assignments: activeAssignments,
-                isCompleted: false,
-              ),
-              const SizedBox(height: 24),
-              _AssignmentsSection(
-                title: 'Solicitudes completadas',
-                subtitle: 'Atendidas o finalizadas',
-                count: completedAssignments.length,
-                assignments: completedAssignments,
-                isCompleted: true,
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _AssignmentsSection extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final int count;
-  final List<Map<String, dynamic>> assignments;
-  final bool isCompleted;
-
-  const _AssignmentsSection({
-    required this.title,
-    required this.subtitle,
-    required this.count,
-    required this.assignments,
-    required this.isCompleted,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                Text(subtitle, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey)),
-              ],
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: isCompleted ? Colors.grey[300] : Colors.blue[100],
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                count.toString(),
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
+            const Text('Ver todas tus asignaciones'),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EmployeeAssignmentsScreen())),
+              child: const Text('Abrir mis asignaciones'),
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        if (assignments.isEmpty)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Center(
-                child: Text(
-                  'No hay solicitudes',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
-                ),
-              ),
-            ),
-          )
-        else
-          Column(
-            children: assignments.map((assignment) {
-              return Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  assignment['incidente_tipo'] ?? 'Solicitud',
-                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  assignment['incidente_descripcion'] ?? 'Sin descripción',
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: isCompleted ? Colors.green[100] : Colors.orange[100],
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              assignment['incidente_estado'] ?? 'Desconocido',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: isCompleted ? Colors.green[700] : Colors.orange[700],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          _DetailChip(
-                            icon: Icons.info,
-                            label: assignment['servicio_nombre'] ?? 'Sin servicio',
-                          ),
-                          const SizedBox(width: 8),
-                          _DetailChip(
-                            icon: Icons.calendar_today,
-                            label: assignment['fecha_asignacion'] ?? 'Sin fecha',
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-      ],
-    );
-  }
-}
-
-class _DetailChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _DetailChip({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: Colors.grey[600]),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
       ),
     );
   }

@@ -34,6 +34,12 @@ export interface IncidenteEstadoPatchRequest {
   estado: string;
 }
 
+export interface IncidenteEstadoUbicacionPatchRequest {
+  estado: string;
+  latitud?: number;
+  longitud?: number;
+}
+
 export interface TecnicoUbicacionRequest {
   latitud: number;
   longitud: number;
@@ -106,6 +112,10 @@ export class IncidenteApiService {
     return this.http.post(`${this.base}/incidentes/${id}/diagnosticos`, payload);
   }
 
+    updateEstadoConUbicacion(id: string, payload: IncidenteEstadoUbicacionPatchRequest) {
+      return this.http.patch<{ id: string; estado: string }>(`${this.base}/incidentes/${id}/estado`, payload);
+    }
+
   addEvidencia(id: string, tipo: string, archivo: string) {
     // send as url_archivo to match backend field naming
     return this.http.post(`${this.base}/incidentes/${id}/evidencias`, { tipo, url_archivo: archivo });
@@ -135,18 +145,22 @@ export class IncidenteApiService {
     return this.http.get<IncidenteTrackingDto>(`${this.base}/incidentes/${id}/tracking`);
   }
 
-  listTecnicosCercanos(latitud: number, longitud: number, radioKm = 5) {
-    return this.http.get<TecnicoCercanoDto[]>(
-      `${this.base}/incidentes/tecnicos/cercanos`,
-      {
-        params: {
-          latitud,
-          longitud,
-          radio_km: radioKm,
-        },
-      },
-    );
-  }
+  //listTecnicosCercanos(latitud: number, longitud: number, radioKm = 5) {
+    //return this.http.get<TecnicoCercanoDto[]>(
+      //`${this.base}/incidentes/tecnicos/cercanos`,
+      //{
+        //params: {
+         // latitud,
+       //   longitud,
+          //radio_km: radioKm,
+       // },
+     // },
+   // );
+ // }
+
+  listTecnicosDisponibles(): Observable<TecnicoCercanoDto[]> {
+  return this.http.get<TecnicoCercanoDto[]>(`${this.base}/incidentes/tecnicos/disponibles`);
+}
 
   getTrackingWebSocketUrl(id: string): string {
     const normalized = this.base.replace(/\/$/, '');

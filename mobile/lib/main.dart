@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'providers/auth_provider.dart';
+import 'providers/location_provider.dart';
+import 'data/api_service.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/admin/admin_home_screen.dart';
 import 'screens/admin/admin_profile_screen.dart';
@@ -15,8 +17,10 @@ import 'screens/client/tracking_screen.dart';
 import 'screens/client/agregar_evidencia_screen.dart';
 import 'screens/client/detalle_incidente_screen.dart';
 import 'screens/client/seleccionar_ubicacion_screen.dart';
+import 'screens/employee/employee_home_screen.dart';
 import 'screens/employee/employee_profile_screen.dart';
 import 'screens/employee/employee_assignments_screen.dart';
+import 'screens/employee/employee_tracking_screen.dart';
 import 'screens/notifications/notifications_screen.dart';
 import 'core/theme.dart';
 import 'services/notification_service.dart';
@@ -61,8 +65,24 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AuthProvider(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (_) => AuthProvider(),
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, LocationProvider>(
+          create: (_) => LocationProvider(
+            apiService: ApiService(),
+          ),
+          update: (_, authProvider, locationProvider) {
+            // Actualizar el token en LocationProvider si es necesario
+            return locationProvider ??
+                LocationProvider(
+                  apiService: ApiService(token: authProvider.token),
+                );
+          },
+        ),
+      ],
       child: MaterialApp(
         title: 'Auxilio Mecánico',
         theme: AppTheme.lightTheme,
@@ -84,7 +104,17 @@ class MyApp extends StatelessWidget {
           '/tracking': (context) => const TrackingScreen(),
           '/detalle-incidente': (context) => const DetalleIncidenteScreen(),
           '/empleado/perfil': (context) => const EmployeeProfileScreen(),
+          '/empleado/home': (context) => const EmployeeHomeScreen(),
           '/empleado/asignaciones': (context) => const EmployeeAssignmentsScreen(),
+          '/empleado/tracking': (context) {
+            final incidenteId = ModalRoute.of(context)?.settings.arguments as String?;
+            if (incidenteId == null) {
+              return const Scaffold(
+                body: Center(child: Text('ID de incidente no proporcionado')),
+              );
+            }
+            return EmployeeTrackingScreen(incidenteId: incidenteId);
+          },
           '/notificaciones': (context) => const NotificationsScreen(),
         },
       ),

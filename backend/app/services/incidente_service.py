@@ -6,13 +6,16 @@ from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.db.models import Cliente, Diagnostico, Empleado, Evidencia, Incidente, Vehiculo
 from app.schemas.incidente import IncidenteCreate, IncidenteUpdate, TecnicoCercanoOut, TecnicoUbicacionUpdate
-from app.services.asignacion_service import create_asignacion, get_active_asignacion_for_incidente
-from app.services.notification_service import notify_assignment_to_employee, notify_assignment_to_client, notify_new_incident
-from sqlalchemy import select
+from app.services.asignacion_service import (
+    close_active_asignacion_for_incidente,
+    create_asignacion,
+    get_active_asignacion_for_incidente,
+)
+from app.services.notification_service import notify_assignment_to_employee, notify_incidente_en_proceso, notify_new_incident
 
 
 def _distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -96,14 +99,14 @@ def assign_tecnico(
         if actor and actor.empresa_id != empleado.empresa_id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No puedes asignar técnicos de otro taller")
     else:
-        # pick an available employee in the same empresa as actor if provided,
-        # otherwise any available employee
-        stmt = select(Empleado).where(Empleado.disponible == True)
+        # pick any employee in the same empresa as actor if provided,
+        # otherwise any employee
+        stmt = select(Empleado)
         if actor:
             stmt = stmt.where(Empleado.empresa_id == actor.empresa_id)
         candidato = db.execute(stmt).scalars().first()
         if not candidato:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No hay técnicos disponibles para asignar")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No hay técnicos para asignar")
         empleado = candidato
 
     asign = create_asignacion(
@@ -114,7 +117,7 @@ def assign_tecnico(
         empresa_id=empleado.empresa_id,
     )
     if incidente.estado == "pendiente":
-        incidente.estado = "en_proceso"
+        incidente.estado = "asignada"
         db.add(incidente)
         db.commit()
         db.refresh(incidente)
@@ -125,12 +128,8 @@ def assign_tecnico(
     except Exception:
         # do not fail assignment if notification fails
         pass
-    # notify the cliente that su solicitud fue asignada
-    try:
-        notify_assignment_to_client(db, asign.id)
-    except Exception:
-        # do not fail assignment if client notification fails
-        pass
+    # Notificación al cliente ahora se envía cuando empleado cambia a "en_proceso"
+    # (no cuando se asigna, solo cuando está en camino)
 
     # return incidente (unchanged except estado)
     return incidente
@@ -176,6 +175,68 @@ def get_incidente_tracking(db: Session, incidente: Incidente) -> dict:
     }
 
 
+def list_tecnicos_disponibles(
+    db: Session,
+    empresa_id: str | None = None,
+) -> list:
+    """
+    Retorna la lista de técnicos disponibles, manejando valores nulos
+    y excluyendo al personal administrativo.
+    """
+    
+    # 1. Consulta base filtrando por empresa; la disponibilidad real se define por no tener asignación activa
+    stmt = select(Empleado).options(
+        joinedload(Empleado.usuario),
+        joinedload(Empleado.cargo),
+        joinedload(Empleado.roles),
+    )
+
+    if empresa_id:
+        stmt = stmt.where(Empleado.empresa_id == empresa_id)
+
+    candidatos = db.execute(stmt).unique().scalars().all()
+    resultados = []
+    admin_aliases = {"admin", "administrador"}
+
+    for tecnico in candidatos:
+        # Omitir si es administrador por cargo, rol o cuenta staff/superuser
+        cargo_obj = getattr(tecnico, 'cargo', None)
+        cargo_nombre = (getattr(cargo_obj, 'nombre', '') or '').strip().lower()
+        if cargo_nombre in admin_aliases:
+            continue
+
+        if getattr(getattr(tecnico, 'usuario', None), 'is_staff', False) or getattr(getattr(tecnico, 'usuario', None), 'is_superuser', False):
+            continue
+
+        roles = getattr(tecnico, 'roles', []) or []
+        if any((getattr(role, 'nombre', '') or '').strip().lower() in admin_aliases for role in roles):
+            continue
+
+        # Mapeo del nombre (priorizando el nombre completo del empleado)
+        nombre_display = getattr(tecnico, 'nombre_completo', None)
+        
+        if not nombre_display and hasattr(tecnico, 'usuario') and tecnico.usuario:
+            u = tecnico.usuario
+            nombre_display = f"{getattr(u, 'first_name', '')} {getattr(u, 'last_name', '')}".strip()
+            
+            if not nombre_display:
+                nombre_display = getattr(u, 'username', 'Técnico sin nombre')
+
+        # Manejo seguro de coordenadas
+        t_lat = float(tecnico.latitud_actual) if getattr(tecnico, 'latitud_actual', None) else 0.0
+        t_lon = float(tecnico.longitud_actual) if getattr(tecnico, 'longitud_actual', None) else 0.0
+
+        resultados.append({
+            "empleado_id": str(tecnico.id),
+            "nombre_completo": nombre_display or "Técnico Disponible",
+            "latitud": t_lat,
+            "longitud": t_lon,
+            "distancia_km": 0.0,
+            "disponible": True,
+        })
+
+    return resultados
+
 def list_tecnicos_cercanos(
     db: Session,
     latitud: float,
@@ -183,14 +244,34 @@ def list_tecnicos_cercanos(
     radio_km: float,
     empresa_id: str | None = None,
 ) -> list[TecnicoCercanoOut]:
-    stmt = select(Empleado).where(Empleado.latitud_actual.isnot(None), Empleado.longitud_actual.isnot(None))
+    stmt = select(Empleado).options(
+        joinedload(Empleado.usuario),
+        joinedload(Empleado.cargo),
+        joinedload(Empleado.roles),
+    ).where(
+        Empleado.latitud_actual.isnot(None),
+        Empleado.longitud_actual.isnot(None),
+    )
     if empresa_id:
         stmt = stmt.where(Empleado.empresa_id == empresa_id)
 
-    candidatos = db.execute(stmt).scalars().all()
+    candidatos = db.execute(stmt).unique().scalars().all()
     resultados: list[TecnicoCercanoOut] = []
+    admin_aliases = {"admin", "administrador"}
 
     for tecnico in candidatos:
+        cargo_obj = getattr(tecnico, 'cargo', None)
+        cargo_nombre = (getattr(cargo_obj, 'nombre', '') or '').strip().lower()
+        if cargo_nombre in admin_aliases:
+            continue
+
+        if getattr(getattr(tecnico, 'usuario', None), 'is_staff', False) or getattr(getattr(tecnico, 'usuario', None), 'is_superuser', False):
+            continue
+
+        roles = getattr(tecnico, 'roles', []) or []
+        if any((getattr(role, 'nombre', '') or '').strip().lower() in admin_aliases for role in roles):
+            continue
+
         tecnico_lat = float(tecnico.latitud_actual)
         tecnico_lon = float(tecnico.longitud_actual)
         distancia = _distance_km(latitud, longitud, tecnico_lat, tecnico_lon)
@@ -202,12 +283,13 @@ def list_tecnicos_cercanos(
                     latitud=tecnico_lat,
                     longitud=tecnico_lon,
                     distancia_km=round(distancia, 3),
-                    disponible=bool(tecnico.disponible),
+                    disponible=True,
                 )
             )
 
     resultados.sort(key=lambda item: item.distancia_km)
     return resultados
+
 
 
 def add_diagnostico(db: Session, incidente: Incidente, clasificacion: int | None = None, resumen: str | None = None, prioridad: int | None = None) -> Diagnostico:

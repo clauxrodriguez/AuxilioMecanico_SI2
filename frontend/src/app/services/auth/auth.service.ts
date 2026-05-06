@@ -199,7 +199,7 @@ export class AuthService {
       this.decodedTokenSubject.next(decoded);
       this.loadMyPermissions().subscribe({
         next: () => {
-          if (!this.isClient && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
             this.registerPushNotificationsForCurrentUser();
           }
         },
@@ -220,14 +220,13 @@ export class AuthService {
   }
 
   private registerPushNotificationsForCurrentUser(): void {
-    if (this.isClient) {
-      console.log('[AuthService] FCM skipped for client accounts');
-      return;
-    }
-
+    console.log('[AuthService] Registering push notifications for user:', this.currentUser?.username);
     void this.pushNotificationService.requestPermission().then((token) => {
       if (token) {
+        console.log('[AuthService] FCM token obtained, sending to backend');
         void this.pushNotificationService.sendTokenToBackend(token);
+      } else {
+        console.log('[AuthService] User denied notification permission or token unavailable');
       }
     });
   }

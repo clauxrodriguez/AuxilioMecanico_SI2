@@ -499,6 +499,47 @@ class ApiService {
     }
   }
 
+  /// Obtener detalle de un incidente - GET /api/incidentes/{id}/
+  Future<Map<String, dynamic>> getIncidente(String id) async {
+    final response = await http
+        .get(
+          Uri.parse('${AppConstants.baseUrl}/api/incidentes/$id/'),
+          headers: _getHeaders(),
+        )
+        .timeout(AppConstants.requestTimeout);
+
+    return _handleResponse<Map<String, dynamic>>(
+      response,
+      (b) => b as Map<String, dynamic>,
+    );
+  }
+
+  /// Actualizar solo el estado de un incidente - PATCH /api/incidentes/{id}/estado
+  /// Opcionalmente incluir latitud y longitud cuando el estado es "en_proceso"
+  Future<Map<String, dynamic>> updateIncidenteEstado(
+    String id,
+    String estado, {
+    double? latitud,
+    double? longitud,
+  }) async {
+    final body = <String, dynamic>{'estado': estado};
+    if (latitud != null) body['latitud'] = latitud;
+    if (longitud != null) body['longitud'] = longitud;
+
+    final response = await http
+        .patch(
+          Uri.parse('${AppConstants.baseUrl}/api/incidentes/$id/estado'),
+          headers: _getHeaders(),
+          body: jsonEncode(body),
+        )
+        .timeout(AppConstants.requestTimeout);
+
+    return _handleResponse<Map<String, dynamic>>(
+      response,
+      (b) => b as Map<String, dynamic>,
+    );
+  }
+
   /// Crear un nuevo empleado - POST /api/empleados
   Future<User> createEmployee({
     required String username,
@@ -584,6 +625,38 @@ class ApiService {
 
       if (response.statusCode != 204 && response.statusCode != 200) {
         throw Exception('Error al eliminar empleado: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Actualizar ubicación del técnico - PATCH /incidentes/tecnicos/mi-ubicacion
+  /// Llamado periódicamente para compartir posición GPS con el backend
+  Future<Map<String, dynamic>> actualizarMiUbicacion({
+    required double latitud,
+    required double longitud,
+  }) async {
+    try {
+      final response = await http
+          .patch(
+            Uri.parse(
+              '${AppConstants.baseUrl}/api/incidentes/tecnicos/mi-ubicacion',
+            ),
+            headers: _getHeaders(),
+            body: jsonEncode({
+              'latitud': latitud,
+              'longitud': longitud,
+            }),
+          )
+          .timeout(AppConstants.requestTimeout);
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      } else {
+        throw Exception(
+          'Error al actualizar ubicación: ${response.statusCode}',
+        );
       }
     } catch (e) {
       rethrow;

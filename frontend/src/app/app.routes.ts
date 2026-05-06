@@ -22,6 +22,12 @@ import { UbicacionTallerComponent } from './components/taller/ubicacion-taller.c
 import { PagosComponent } from './components/taller/pagos.component';
 import { ReportesComponent } from './components/taller/reportes.component';
 import { ConfiguracionComponent } from './components/taller/configuracion.component';
+import { AdminProfileComponent } from './components/taller/admin-profile.component';
+import { AdminNotificationsComponent } from './components/taller/admin-notifications.component';
+import { AdminSolicitudesPendientesComponent } from './components/taller/admin-solicitudes-pendientes.component';
+import { AdminSolicitudesAsignadasComponent } from './components/taller/admin-solicitudes-asignadas.component';
+import { AdminSolicitudesEnProcesoComponent } from './components/taller/admin-solicitudes-enproceso.component';
+import { AdminSolicitudesAtendidasComponent } from './components/taller/admin-solicitudes-atendidas.component';
 
 export const appRoutes: Routes = [
   { path: '', component: HomeComponent },
@@ -63,7 +69,13 @@ export const appRoutes: Routes = [
       { path: 'incidentes', component: IncidentesComponent },
       { path: 'incidentes/lista', component: IncidentesComponent },
       { path: 'asignaciones', component: AsignacionesEmpleadoComponent },
+      { path: 'admin/perfil', component: AdminProfileComponent },
+      { path: 'admin/notificaciones', component: AdminNotificationsComponent },
       { path: 'admin/solicitudes', component: SolicitudIncidentesComponent },
+      { path: 'admin/solicitudes/pendientes', component: AdminSolicitudesPendientesComponent },
+      { path: 'admin/solicitudes/asignadas', component: AdminSolicitudesAsignadasComponent },
+      { path: 'admin/solicitudes/en-proceso', component: AdminSolicitudesEnProcesoComponent },
+      { path: 'admin/solicitudes/atendidas', component: AdminSolicitudesAtendidasComponent },
       { path: 'taller/ubicacion', component: UbicacionTallerComponent },
       { path: 'taller/pagos', component: PagosComponent },
       { path: 'taller/reportes', component: ReportesComponent },

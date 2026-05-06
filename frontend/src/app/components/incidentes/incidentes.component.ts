@@ -769,10 +769,11 @@ export class IncidentesComponent implements OnInit, AfterViewInit, OnDestroy {
       this.message = 'El incidente no tiene latitud/longitud para búsqueda';
       return;
     }
+    // Ahora llamamos a la nueva función sin pasarle coordenadas ni radio
 
-    this.api.listTecnicosCercanos(tracking.latitud_incidente, tracking.longitud_incidente, 10).subscribe({
+    this.api.listTecnicosDisponibles().subscribe({
       next: (rows) => {
-        this.tecnicosCercanos = rows;
+        this.tecnicosCercanos = rows || [];
       },
       error: () => {
         this.message = 'No se pudieron cargar técnicos cercanos';
@@ -780,6 +781,8 @@ export class IncidentesComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+
+  
   useBrowserLocationForIncident() {
     if (!navigator.geolocation) {
       this.message = 'Geolocalización no disponible en este navegador';

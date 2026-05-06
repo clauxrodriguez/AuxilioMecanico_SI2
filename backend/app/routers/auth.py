@@ -114,14 +114,21 @@ def update_fcm_token(payload: FcmTokenUpdate, user: User = Depends(get_current_u
     empleado = resolve_employee(db, user)
     if empleado:
         empleado.fcm_token = payload.fcm_token
+        user.fcm_token = payload.fcm_token
         db.commit()
         return {"message": "FCM token actualizado"}
 
     cliente = get_cliente_for_user(db, user.id)
     if cliente:
         cliente.fcm_token = payload.fcm_token
+        user.fcm_token = payload.fcm_token
         db.commit()
         return {"message": "FCM token actualizado"}
 
-    # No asociado a cliente ni empleado: guardar en User? por ahora no
+    if user.is_staff:
+        user.fcm_token = payload.fcm_token
+        db.commit()
+        return {"message": "FCM token actualizado"}
+
+    # No asociado a cliente ni empleado ni staff
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Usuario no asociado a cliente ni empleado")

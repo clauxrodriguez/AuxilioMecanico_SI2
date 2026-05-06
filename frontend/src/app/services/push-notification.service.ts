@@ -175,12 +175,19 @@ export class PushNotificationService {
     onMessage(this.messaging, (payload) => {
       console.log('[PushNotificationService] Message received in foreground:', payload);
 
-      const incidentId = payload.data?.['incidente_id'];
+      const data = (payload.data || {}) as Record<string, string>;
+      const titulo = data['titulo'] || data['tipo'] || payload.notification?.title || 'Nueva notificación';
+      const empleadoNombre = data['actor_nombre'] || data['empleado_nombre'] || null;
+
+      const title = titulo;
+      const body = payload.notification?.body || data['message'] || (empleadoNombre ? `El empleado '${empleadoNombre}' completó su asignación` : 'Tienes una nueva notificación');
+
+      const incidentId = data['incidente_id'];
       if (incidentId && onIncidentCallback) {
         onIncidentCallback(incidentId);
       }
 
-      onMessageCallback(payload);
+      onMessageCallback({ payload, title, body, data, incidentId });
     });
   }
 

@@ -2,10 +2,12 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink, ActivatedRoute } from '@angular/router';
+import { DatePipe } from '@angular/common';
 
 import { AuthService } from '../../services/auth/auth.service';
 import { ClienteApiService } from '../../services/cliente.service';
 import { IncidenteApiService, IncidenteCreateRequest } from '../../services/incidente.service';
+import { NotificationService, type NotificationDto } from '../../services/notification.service';
 import type { ClienteDto, VehiculoDto } from '../../services/cliente.service';
 
 @Component({
@@ -25,6 +27,7 @@ import type { ClienteDto, VehiculoDto } from '../../services/cliente.service';
       <nav class="menu-tabs">
         <button class="tab" [class.active]="activeSection === 'perfil'" (click)="setSection('perfil')">Perfil</button>
         <button class="tab" [class.active]="activeSection === 'vehiculos'" (click)="setSection('vehiculos')">Mis vehículos</button>
+        <button class="tab" [class.active]="activeSection === 'notificaciones'" (click)="setSection('notificaciones')">Notificaciones</button>
         <button class="tab" [class.active]="activeSection === 'solicitud'" (click)="setSection('solicitud')">Solicitud de Auxilio</button>
       </nav>
 
@@ -123,6 +126,67 @@ import type { ClienteDto, VehiculoDto } from '../../services/cliente.service';
           </div>
         </section>
       </section>
+
+      <!-- Sección: Notificaciones -->
+      <section class="card inner" *ngIf="activeSection === 'notificaciones'">
+        <div class="section-head">
+          <div>
+            <h3>Mis Notificaciones</h3>
+            <p class="muted">Avisos y actualizaciones de tus solicitudes.</p>
+          </div>
+          <button class="btn btn-ghost" type="button" (click)="loadNotifications()" [disabled]="loadingNotifications">
+            {{ loadingNotifications ? 'Cargando...' : 'Actualizar' }}
+          </button>
+        </div>
+
+        <p class="muted" *ngIf="loadingNotifications">Cargando notificaciones...</p>
+        <div *ngIf="!loadingNotifications && notifications.length === 0" class="muted">No tienes notificaciones.</div>
+
+        <div class="notifications-list" *ngIf="!loadingNotifications && notifications.length > 0">
+          <article class="notification-card" 
+            *ngFor="let notif of notifications" 
+            (click)="showNotificationDetail(notif)"
+            [class.unread]="!notif.leida">
+            <div class="notification-header">
+              <strong class="notification-title">{{ notif.titulo }}</strong>
+              <span class="notification-date">{{ notif.creada_en | date:'dd/MM HH:mm' }}</span>
+            </div>
+            <div class="notification-body">{{ notif.mensaje }}</div>
+            <div *ngIf="!notif.leida" class="badge badge--new">Nuevo</div>
+          </article>
+        </div>
+      </section>
+
+      <!-- Modal de Detalle de Notificación -->
+      <div *ngIf="selectedNotification" class="modal-overlay" (click)="closeNotificationDetail()">
+        <div class="modal-content" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3>Detalle de notificación</h3>
+            <button class="btn-close" (click)="closeNotificationDetail()">✕</button>
+          </div>
+
+          <div class="modal-body">
+            <div class="detail-section">
+              <span class="label">Título</span>
+              <p>{{ selectedNotification.titulo }}</p>
+            </div>
+
+            <div class="detail-section">
+              <span class="label">Mensaje</span>
+              <p>{{ selectedNotification.mensaje }}</p>
+            </div>
+
+            <div class="detail-section">
+              <span class="label">Fecha</span>
+              <p>{{ selectedNotification.creada_en | date: 'dd/MM/yyyy HH:mm:ss' }}</p>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn" (click)="closeNotificationDetail()">Cerrar</button>
+          </div>
+        </div>
+      </div>
 
       <!-- Sección: Seguimiento de Solicitudes -->
       <section class="card inner" *ngIf="activeSection === 'seguimiento'">
@@ -316,6 +380,136 @@ import type { ClienteDto, VehiculoDto } from '../../services/cliente.service';
       .btn-ghost { background: transparent; color: var(--muted); border: 1px solid rgba(255, 255, 255, 0.1); }
       .btn-ghost:hover { background: rgba(255, 255, 255, 0.05); color: var(--text); }
       .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+      /* Notificaciones */
+      .notifications-list { display: grid; gap: 0.75rem; margin-top: 1rem; }
+
+      .notification-card {
+        padding: 1rem;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background: var(--bg);
+      }
+
+      .notification-card:hover {
+        border-color: var(--brand);
+        background: rgba(59, 130, 246, 0.05);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .notification-card.unread {
+        background: rgba(59, 130, 246, 0.1);
+        border-color: var(--brand);
+      }
+
+      .notification-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 0.5rem;
+        align-items: flex-start;
+      }
+
+      .notification-title {
+        font-size: 0.95rem;
+        color: var(--text);
+      }
+
+      .notification-date {
+        font-size: 0.75rem;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+
+      .notification-body {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.5rem;
+        line-height: 1.4;
+      }
+
+      .badge--new {
+        background: var(--brand-light);
+        color: var(--brand);
+        border-color: var(--brand);
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        display: inline-block;
+        font-weight: 600;
+      }
+
+      /* Modal */
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      }
+
+      .modal-content {
+        background: var(--bg);
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        max-width: 600px;
+        width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+      }
+
+      .modal-header {
+        padding: 1.5rem;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .modal-header h3 {
+        margin: 0;
+      }
+
+      .btn-close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: var(--muted);
+      }
+
+      .modal-body {
+        padding: 1.5rem;
+      }
+
+      .detail-section {
+        margin-bottom: 1.5rem;
+      }
+
+      .detail-section:last-child {
+        margin-bottom: 0;
+      }
+
+      .detail-section p {
+        margin: 0.5rem 0 0 0;
+        color: var(--text);
+      }
+
+      .modal-footer {
+        padding: 1.5rem;
+        border-top: 1px solid var(--line);
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+      }
     `,
   ],
 })
@@ -329,9 +523,12 @@ export class ClientProfileComponent implements OnInit {
   savingProfile = false;
   editingProfile = false;
   showVehicleForm = false;
-  activeSection: 'perfil' | 'vehiculos' | 'solicitud' | 'seguimiento' = 'perfil';
+  activeSection: 'perfil' | 'vehiculos' | 'notificaciones' | 'solicitud' | 'seguimiento' = 'perfil';
   errorMsg = '';
   misSolicitudes: any[] = [];
+  notifications: NotificationDto[] = [];
+  selectedNotification: NotificationDto | null = null;
+  loadingNotifications = false;
 
   profileForm = {
     nombre: '',
@@ -368,6 +565,7 @@ export class ClientProfileComponent implements OnInit {
     public readonly auth: AuthService,
     private readonly clienteApi: ClienteApiService,
     private readonly incidenteApi: IncidenteApiService,
+    private readonly notificationService: NotificationService,
     private readonly route: ActivatedRoute,
   ) {}
 
@@ -396,10 +594,12 @@ export class ClientProfileComponent implements OnInit {
     this.cargarSolicitudes();
   }
 
-  setSection(section: 'perfil' | 'vehiculos' | 'solicitud' | 'seguimiento'): void {
+  setSection(section: 'perfil' | 'vehiculos' | 'notificaciones' | 'solicitud' | 'seguimiento'): void {
     this.activeSection = section;
     if (section === 'seguimiento') {
       this.cargarSolicitudes();
+    } else if (section === 'notificaciones') {
+      this.loadNotifications();
     }
   }
 
@@ -559,6 +759,40 @@ export class ClientProfileComponent implements OnInit {
   verDetalleTracking(solicitud: any): void {
     // Navegar a la página de tracking del incidente
     window.location.href = `/app/incidentes/tracking/${solicitud.id}`;
+  }
+
+  loadNotifications(): void {
+    this.loadingNotifications = true;
+    this.notificationService.getMyNotifications().subscribe({
+      next: (notifs) => {
+        this.notifications = notifs;
+        this.loadingNotifications = false;
+      },
+      error: (error) => {
+        this.loadingNotifications = false;
+        this.errorMsg = error?.error?.detail || 'No se pudieron cargar las notificaciones.';
+      },
+    });
+  }
+
+  showNotificationDetail(notif: NotificationDto): void {
+    this.selectedNotification = notif;
+
+    // Marcar como leída si no lo está
+    if (!notif.leida) {
+      this.notificationService.markAsRead(notif.id).subscribe({
+        next: () => {
+          notif.leida = true;
+        },
+        error: (error) => {
+          console.error('Error marking notification as read:', error);
+        },
+      });
+    }
+  }
+
+  closeNotificationDetail(): void {
+    this.selectedNotification = null;
   }
 
 }

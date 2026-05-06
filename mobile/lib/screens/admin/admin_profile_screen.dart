@@ -121,7 +121,12 @@ class _ProfileHeader extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
                   const SizedBox(height: 8),
-                  Text(user?.fullName ?? user?.username ?? 'Usuario', style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Text(
+                    user?.fullName ?? user?.username ?? 'Usuario',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             ),

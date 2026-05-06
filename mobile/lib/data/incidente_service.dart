@@ -50,6 +50,24 @@ class IncidenteService {
     throw Exception('Error al obtener incidente: ${response.statusCode}');
   }
 
+  Future<List<Map<String, dynamic>>> obtenerEvidencias(String id) async {
+    final response = await http.get(
+      Uri.parse('${AppConstants.baseUrl}/api/incidentes/$id/evidencias'),
+      headers: _buildHeaders(),
+    );
+    if (response.statusCode == 200) {
+      final body = jsonDecode(response.body);
+      if (body is List) {
+        return body.cast<Map<String, dynamic>>();
+      } else if (body is Map && body['evidencias'] is List) {
+        return (body['evidencias'] as List).cast<Map<String, dynamic>>();
+      }
+      return [];
+    }
+    if (response.statusCode == 404) return [];
+    throw Exception('Error al obtener evidencias: ${response.statusCode}');
+  }
+
   Future<Map<String, dynamic>> obtenerTracking(String id) async {
     final response = await http.get(
       Uri.parse('${AppConstants.baseUrl}/api/incidentes/$id/tracking'),

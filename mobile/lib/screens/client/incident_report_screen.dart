@@ -229,6 +229,7 @@ class _IncidentReportFormState extends State<_IncidentReportForm> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // HEADER CARD
                   Card(
                     elevation: 0,
                     color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
@@ -251,170 +252,242 @@ class _IncidentReportFormState extends State<_IncidentReportForm> {
                   ),
                   const SizedBox(height: 16),
 
-                  // 1. TIPO DE INCIDENTE (requerido)
-                  DropdownButtonFormField<String>(
-                    value: _selectedTipo,
-                    items: const [
-                      DropdownMenuItem(value: null, child: Text('Selecciona tipo')),
-                      DropdownMenuItem(value: 'averia', child: Text('Avería')),
-                      DropdownMenuItem(value: 'accidente', child: Text('Accidente')),
-                      DropdownMenuItem(value: 'otro', child: Text('Otro')),
-                    ],
-                    onChanged: (v) => setState(() => _selectedTipo = v),
-                    decoration: const InputDecoration(
-                      labelText: 'Tipo de incidente',
-                      hintText: 'Selecciona tipo',
+                  // FORM SECTION
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // 1. TIPO DE INCIDENTE (requerido)
+                          TextFormField(
+                            initialValue: _selectedTipo ?? '',
+                            onChanged: (v) => setState(() => _selectedTipo = v.isEmpty ? null : v),
+                            decoration: const InputDecoration(
+                              labelText: 'Tipo de incidente',
+                              hintText: 'Ej: Avería, Accidente, Pinchazo...',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // 2. VEHÍCULO (opcional)
+                          DropdownButtonFormField<Vehicle>(
+                            value: _selectedVehicle,
+                            items: [
+                              const DropdownMenuItem(
+                                value: null,
+                                child: Text('Selecciona vehículo'),
+                              ),
+                              ..._vehicles.map(
+                                (v) => DropdownMenuItem(
+                                  value: v,
+                                  child: Text('${v.marca ?? ''} ${v.modelo ?? ''} - ${v.placa ?? ''}'),
+                                ),
+                              ),
+                            ],
+                            onChanged: (v) => setState(() => _selectedVehicle = v),
+                            decoration: const InputDecoration(labelText: 'Vehículo'),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // 3. DESCRIPCIÓN
+                          TextFormField(
+                            controller: _descCtrl,
+                            maxLines: 4,
+                            decoration: const InputDecoration(
+                              labelText: 'Descripción',
+                              hintText: 'Descripción del problema',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              SizedBox(
+                                child: ElevatedButton.icon(
+                                  onPressed: _toggleDictation,
+                                  icon: Icon(_isListening ? Icons.stop : Icons.mic),
+                                  label: Text(_isListening ? 'Escuchando...' : 'Dictar'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
 
-                  // 2. VEHÍCULO (opcional)
-                  DropdownButtonFormField<Vehicle>(
-                    value: _selectedVehicle,
-                    items: [
-                      const DropdownMenuItem(
-                        value: null,
-                        child: Text('Selecciona vehículo (opcional)'),
+                  // UBICACIÓN SECTION
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Ubicación',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Ubicación seleccionada: $_locationSummary',
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: () async {
+                                final result = await Navigator.pushNamed(
+                                  context,
+                                  '/seleccionar-ubicacion',
+                                );
+                                if (result is Map) {
+                                  setState(() {
+                                    _latitud = (result['latitud'] as num?)?.toDouble();
+                                    _longitud = (result['longitud'] as num?)?.toDouble();
+                                  });
+                                }
+                              },
+                              child: const Text('Elegir ubicación en mapa'),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () async {
+                                bool serviceEnabled =
+                                    await Geolocator.isLocationServiceEnabled();
+                                if (!mounted) return;
+                                if (!serviceEnabled) {
+                                  _showSnack('Activa el servicio de ubicación');
+                                  return;
+                                }
+                                LocationPermission permission =
+                                    await Geolocator.checkPermission();
+                                if (!mounted) return;
+                                if (permission == LocationPermission.denied) {
+                                  permission = await Geolocator.requestPermission();
+                                  if (!mounted) return;
+                                }
+                                if (permission == LocationPermission.denied ||
+                                    permission == LocationPermission.deniedForever) {
+                                  _showSnack('Permiso de ubicación denegado');
+                                  return;
+                                }
+                                try {
+                                  final pos = await Geolocator.getCurrentPosition();
+                                  if (!mounted) return;
+                                  setState(() {
+                                    _latitud = pos.latitude;
+                                    _longitud = pos.longitude;
+                                  });
+                                } catch (e) {
+                                  if (!mounted) return;
+                                  _showSnack('Error obteniendo ubicación: $e');
+                                }
+                              },
+                              icon: const Icon(Icons.my_location),
+                              label: const Text('Usar mi ubicación'),
+                            ),
+                          ),
+                        ],
                       ),
-                      ..._vehicles.map(
-                        (v) => DropdownMenuItem(
-                          value: v,
-                          child: Text('${v.marca ?? ''} ${v.modelo ?? ''} - ${v.placa ?? ''}'),
-                        ),
-                      ),
-                    ],
-                    onChanged: (v) => setState(() => _selectedVehicle = v),
-                    decoration: const InputDecoration(labelText: 'Vehículo'),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // 3. DESCRIPCIÓN
-                  TextFormField(
-                    controller: _descCtrl,
-                    maxLines: 4,
-                    decoration: const InputDecoration(
-                      labelText: 'Descripción',
-                      hintText: 'Descripción del problema',
-                      border: OutlineInputBorder(),
                     ),
                   ),
                   const SizedBox(height: 16),
 
-                  // 4. UBICACIÓN
-                  const Text(
-                    'Ubicación',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                  // EVIDENCIAS SECTION
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Evidencias (fotos)',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: _pickImage,
+                              icon: const Icon(Icons.camera_alt),
+                              label: const Text('Adjuntar foto'),
+                            ),
+                          ),
+                          if (_pickedFile != null) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.green[50],
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '${_pickedFile!.name} (${_pickedTipo ?? 'archivo'})',
+                                      style: const TextStyle(fontSize: 12),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _evidenceTextCtrl,
+                            maxLines: 3,
+                            decoration: const InputDecoration(
+                              labelText: 'Texto de evidencia (opcional)',
+                              hintText: 'Describe lo que sucedió...',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 24),
+
+                  // ACTION BUTTONS
                   Row(
                     children: [
                       Expanded(
-                        child: TextField(
-                          readOnly: true,
-                          decoration: InputDecoration(
-                            labelText: 'Latitud',
-                            hintText: _latitud?.toString() ?? 'No definida',
-                          ),
-                          controller: TextEditingController(text: _latitud?.toString() ?? ''),
+                        child: ElevatedButton(
+                          onPressed: _submit,
+                          child: const Text('Enviar solicitud'),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: TextField(
-                          readOnly: true,
-                          decoration: InputDecoration(
-                            labelText: 'Longitud',
-                            hintText: _longitud?.toString() ?? 'No definida',
-                          ),
-                          controller: TextEditingController(text: _longitud?.toString() ?? ''),
+                        child: OutlinedButton(
+                          onPressed: () {
+                            setState(() {
+                              _selectedTipo = null;
+                              _selectedVehicle = null;
+                              _descCtrl.clear();
+                              _evidenceTextCtrl.clear();
+                              _pickedFile = null;
+                              _latitud = null;
+                              _longitud = null;
+                            });
+                          },
+                          child: const Text('Cancelar'),
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: () async {
-                      final result = await Navigator.pushNamed(
-                        context,
-                        '/seleccionar-ubicacion',
-                      );
-                      if (result is Map) {
-                        setState(() {
-                          _latitud = (result['latitud'] as num?)?.toDouble();
-                          _longitud = (result['longitud'] as num?)?.toDouble();
-                        });
-                      }
-                    },
-                    child: const Text('Elegir ubicación en mapa'),
-                  ),
-                  const SizedBox(height: 8),
-                  ElevatedButton.icon(
-                    onPressed: () async {
-                      bool serviceEnabled =
-                          await Geolocator.isLocationServiceEnabled();
-                      if (!mounted) return;
-                      if (!serviceEnabled) {
-                        _showSnack('Activa el servicio de ubicación');
-                        return;
-                      }
-                      LocationPermission permission =
-                          await Geolocator.checkPermission();
-                      if (!mounted) return;
-                      if (permission == LocationPermission.denied) {
-                        permission = await Geolocator.requestPermission();
-                        if (!mounted) return;
-                      }
-                      if (permission == LocationPermission.denied ||
-                          permission == LocationPermission.deniedForever) {
-                        _showSnack('Permiso de ubicación denegado');
-                        return;
-                      }
-                      try {
-                        final pos = await Geolocator.getCurrentPosition();
-                        if (!mounted) return;
-                        setState(() {
-                          _latitud = pos.latitude;
-                          _longitud = pos.longitude;
-                        });
-                      } catch (e) {
-                        if (!mounted) return;
-                        _showSnack('Error obteniendo ubicación: $e');
-                      }
-                    },
-                    icon: const Icon(Icons.my_location),
-                    label: const Text('Usar mi ubicación'),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Ubicación seleccionada: $_locationSummary',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // 5. EVIDENCIAS (fotos)
-                  const Text(
-                    'Evidencias (fotos)',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  ElevatedButton.icon(
-                    onPressed: _pickImage,
-                    icon: const Icon(Icons.camera_alt),
-                    label: const Text('Adjuntar foto'),
-                  ),
-                  if (_pickedFile != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      '${_pickedFile!.name} (${_pickedTipo ?? 'archivo'})',
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-
-                  // 6. BOTÓN ENVIAR
-                  ElevatedButton(
-                    onPressed: _submit,
-                    child: const Text('Enviar solicitud'),
                   ),
                 ],
               ),
