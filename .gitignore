@@ -29,3 +29,4 @@ frontend/*.log
 # Build artifacts / coverage
 coverage/
 *.coverage
+backend/firebase-service-account.json

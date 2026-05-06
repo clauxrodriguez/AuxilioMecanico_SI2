@@ -6,10 +6,14 @@ from app.db.models import Empleado, Rol, Suscripcion, User
 ADMIN_ROLE_ALIASES = {"admin", "administrador"}
 ADMIN_BASE_PERMISSIONS = {
     "manage_cargo",
+    "manage_clientes",
+    "manage_incidentes",
     "manage_empleado",
     "manage_rol",
     "manage_permiso",
     "view_cargo",
+    "view_clientes",
+    "view_incidentes",
     "view_empleado",
     "view_rol",
     "view_permiso",

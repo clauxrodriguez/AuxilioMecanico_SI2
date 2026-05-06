@@ -10,18 +10,37 @@ import { AuthService } from '../../services/auth/auth.service';
   imports: [CommonModule, RouterLink, RouterLinkActive],
   template: `
     <aside class="card side">
-      <h2>Gestion Usuario</h2>
+      <h2 *ngIf="!auth.isClient">Panel del taller</h2>
+      <h2 *ngIf="auth.isClient">Mi cuenta</h2>
       <p class="muted" *ngIf="auth.currentUser as user">
         {{ user.nombre_completo }}<br />
-        <span class="badge">{{ user.empresa_nombre || 'Sin empresa' }}</span>
+        <span class="badge">{{ auth.isClient ? 'Cliente' : (user.empresa_nombre || 'Sin empresa') }}</span>
       </p>
 
-      <nav>
-        <a routerLink="/app/empleados" routerLinkActive="active">Empleados</a>
-        <a routerLink="/app/cargos" routerLinkActive="active">Cargos</a>
+      <nav *ngIf="auth.isAdmin && hasAdminPermission">
+        <a routerLink="/app/admin/perfil" routerLinkActive="active">Mi perfil</a>
+        <a routerLink="/app/admin/notificaciones" routerLinkActive="active">Notificaciones</a>
+        <a routerLink="/app/admin/solicitudes" routerLinkActive="active">Solicitudes de auxilio</a>
+        <a routerLink="/app/empleados" routerLinkActive="active">Empleados (Técnicos)</a>
+        <a routerLink="/app/taller/ubicacion" routerLinkActive="active">Ubicación del taller</a>
         <a routerLink="/app/servicios" routerLinkActive="active">Servicios</a>
-        <a routerLink="/app/roles" routerLinkActive="active">Roles</a>
-        <a routerLink="/app/permisos" routerLinkActive="active">Permisos</a>
+        <a routerLink="/app/clientes" routerLinkActive="active">Clientes</a>
+        <a routerLink="/app/vehiculos" routerLinkActive="active">Vehículos atendidos</a>
+        <a routerLink="/app/taller/pagos" routerLinkActive="active">Pagos / Comisiones</a>
+        <a routerLink="/app/taller/reportes" routerLinkActive="active">Reportes</a>
+        <a routerLink="/app/roles" routerLinkActive="active">Roles y permisos</a>
+        <a routerLink="/app/taller/configuracion" routerLinkActive="active">Configuración</a>
+      </nav>
+
+      <nav *ngIf="!auth.isClient && !auth.isAdmin">
+        <a routerLink="/app/empleado/perfil" routerLinkActive="active">Mi perfil</a>
+        <a routerLink="/app/empleado/asignaciones" routerLinkActive="active">Mis asignaciones</a>
+      </nav>
+
+      <nav *ngIf="auth.isClient">
+        <a routerLink="/app/cliente/perfil" routerLinkActive="active">Mi perfil</a>
+        <a routerLink="/app/incidentes" routerLinkActive="active">Solicitar Auxilio</a>
+        <a routerLink="/app/cliente/historial" routerLinkActive="active">Seguimiento de Solicitud</a>
       </nav>
 
       <button class="btn btn-ghost" (click)="logout()">Cerrar sesion</button>
@@ -65,6 +84,12 @@ import { AuthService } from '../../services/auth/auth.service';
 })
 export class SidebarComponent {
   constructor(public readonly auth: AuthService) {}
+
+  get hasAdminPermission(): boolean {
+    return this.auth.hasPermission('manage_empleado') || 
+           this.auth.hasPermission('manage_rol') || 
+           this.auth.hasPermission('manage_servicio');
+  }
 
   logout(): void {
     this.auth.logout();

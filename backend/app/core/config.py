@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 7
     invitation_token_expire_hours: int = 48
 
-    media_root: str = "backendnew/media"
+    media_root: str = "app/media"
     media_url: str = "/media"
     frontend_base_url: str = "http://localhost:4200"
 
@@ -30,6 +30,14 @@ class Settings(BaseSettings):
     smtp_from_email: str = "no-reply@auxiliomecanico.local"
 
     cors_origins: str = "*"
+
+    # Cloudinary / OpenAI (agregadas para permitir variables extra en .env)
+    cloudinary_cloud_name: str | None = None
+    cloudinary_api_key: str | None = None
+    cloudinary_api_secret: str | None = None
+    openai_api_key: str | None = None
+    firebase_credentials_path: str | None = None
+    FIREBASE_CREDENTIALS_PATH: str | None = None
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

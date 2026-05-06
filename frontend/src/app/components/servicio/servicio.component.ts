@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { Servicio } from '../../models/user-management.models';
 import { AuthService } from '../../services/auth/auth.service';
@@ -9,7 +10,7 @@ import { UserManagementApiService } from '../../services/user-management-api.ser
 @Component({
   selector: 'app-servicio',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink],
   template: `
     <section class="card page-block">
       <header class="head">
@@ -17,11 +18,13 @@ import { UserManagementApiService } from '../../services/user-management-api.ser
           <h2>Servicios</h2>
           <p class="muted">Registro y mantenimiento de servicios del taller.</p>
         </div>
+        <a *ngIf="!isCreateView && canManage" [routerLink]="['/app/servicios/nuevo']" class="btn btn-primary">Registrar servicio</a>
+        <a *ngIf="isCreateView" [routerLink]="['/app/servicios']" class="btn btn-ghost">Volver al listado</a>
       </header>
 
       <p class="error" *ngIf="errorMsg">{{ errorMsg }}</p>
 
-      <form class="card inner" [formGroup]="form" (ngSubmit)="save()" *ngIf="canManage">
+      <form class="card inner" [formGroup]="form" (ngSubmit)="save()" *ngIf="canManage && isCreateView">
         <h3>{{ editingId ? 'Editar servicio' : 'Nuevo servicio' }}</h3>
 
         <div>
@@ -47,7 +50,7 @@ import { UserManagementApiService } from '../../services/user-management-api.ser
         </div>
       </form>
 
-      <table class="table">
+      <table class="table" *ngIf="!isCreateView">
         <thead>
           <tr>
             <th>Nombre</th>
@@ -66,7 +69,7 @@ import { UserManagementApiService } from '../../services/user-management-api.ser
               </span>
             </td>
             <td *ngIf="canManage">
-              <button class="btn btn-ghost" (click)="edit(servicio)">Editar</button>
+              <button class="btn btn-ghost" (click)="openEdit(servicio)">Editar</button>
               <button class="btn btn-danger" (click)="remove(servicio)">Eliminar</button>
             </td>
           </tr>
@@ -116,6 +119,7 @@ import { UserManagementApiService } from '../../services/user-management-api.ser
 })
 export class ServicioComponent implements OnInit {
   servicios: Servicio[] = [];
+  isCreateView = false;
   editingId: string | null = null;
   loading = false;
   errorMsg = '';
@@ -130,6 +134,7 @@ export class ServicioComponent implements OnInit {
     private readonly api: UserManagementApiService,
     private readonly auth: AuthService,
     private readonly fb: FormBuilder,
+    private readonly route: ActivatedRoute,
   ) {}
 
   get canManage(): boolean {
@@ -137,6 +142,12 @@ export class ServicioComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.route.url.subscribe((segments) => {
+      this.isCreateView = segments.some((s) => s.path === 'nuevo');
+      if (this.isCreateView) {
+        this.resetForm();
+      }
+    });
     this.fetchServicios();
   }
 
@@ -158,6 +169,11 @@ export class ServicioComponent implements OnInit {
       descripcion: servicio.descripcion || '',
       activo: servicio.activo,
     });
+  }
+
+  openEdit(servicio: Servicio): void {
+    this.edit(servicio);
+    this.isCreateView = true;
   }
 
   resetForm(): void {

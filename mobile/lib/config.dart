@@ -11,8 +11,8 @@ library config;
 const String DEV_BASE_URL_ANDROID = 'http://10.0.2.2:8001';
 
 /// URL base para desarrollo en dispositivo físico
-/// Cambia 192.168.x.x por tu IP local
-const String DEV_BASE_URL_PHYSICAL = 'http://192.168.1.100:8001';
+/// Usa la IP Wi-Fi local del PC para que el móvil en la misma red pueda acceder
+const String DEV_BASE_URL_PHYSICAL = 'http://10.73.74.11:8001';
 
 /// URL base para desarrollo en iOS
 const String DEV_BASE_URL_IOS = 'http://localhost:8001';

@@ -52,9 +52,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 ],
               ),
               onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Perfil en desarrollo')),
-                );
+                Navigator.of(context).pushNamed('/perfil');
               },
             ),
             PopupMenuItem(

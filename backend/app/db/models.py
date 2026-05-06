@@ -1,6 +1,6 @@
 from __future__ import annotations
-
-from datetime import date, datetime
+import uuid
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import (
@@ -54,8 +54,10 @@ class User(Base):
     is_staff: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     date_joined: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    fcm_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     empleado: Mapped[Empleado | None] = relationship(back_populates="usuario", uselist=False)
+    notificaciones: Mapped[list[Notificacion]] = relationship(back_populates="usuario")
 
 
 class Empresa(Base):
@@ -67,6 +69,8 @@ class Empresa(Base):
     direccion: Mapped[str | None] = mapped_column(String(255), nullable=True)
     telefono: Mapped[str | None] = mapped_column(String(20), nullable=True)
     email: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    latitud: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
+    longitud: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
     fecha_creacion: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     empleados: Mapped[list[Empleado]] = relationship(back_populates="empresa")
@@ -132,6 +136,10 @@ class Empleado(Base):
 
     foto_perfil: Mapped[str | None] = mapped_column(String(100), nullable=True)
     fcm_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    latitud_actual: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
+    longitud_actual: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
+    ubicacion_actualizada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    disponible: Mapped[bool] = mapped_column(Boolean, default=True)
 
     usuario: Mapped[User] = relationship(back_populates="empleado")
     empresa: Mapped[Empresa] = relationship(back_populates="empleados")
@@ -152,3 +160,170 @@ class Suscripcion(Base):
     max_activos: Mapped[int] = mapped_column(Integer, default=50)
 
     empresa: Mapped[Empresa] = relationship(back_populates="suscripcion")
+
+
+class Cliente(Base):
+    __tablename__ = "cliente"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    usuario_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("auth_user.id", ondelete="SET NULL"), unique=True, nullable=True)
+    nombre: Mapped[str] = mapped_column(String(150), nullable=False)
+    email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    telefono: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    fcm_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    usuario: Mapped[User | None] = relationship()
+    vehiculos: Mapped[list["Vehiculo"]] = relationship(back_populates="cliente")
+
+    @property
+    def username(self) -> str | None:
+        return self.usuario.username if self.usuario else None
+
+
+class Notificacion(Base):
+    __tablename__ = "notificacion"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("auth_user.id", ondelete="CASCADE"), nullable=False)
+    titulo: Mapped[str] = mapped_column(String(150), nullable=False)
+    mensaje: Mapped[str] = mapped_column(Text, nullable=False)
+    tipo: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    data_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    leida: Mapped[bool] = mapped_column(Boolean, default=False)
+    leida_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    creada_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    usuario: Mapped[User] = relationship(back_populates="notificaciones")
+
+
+class Vehiculo(Base):
+    __tablename__ = "vehiculo"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    cliente_id: Mapped[str] = mapped_column(String(36), ForeignKey("cliente.id", ondelete="CASCADE"), nullable=False)
+    ano: Mapped[int | None] = mapped_column("ano", Integer, nullable=True)
+    placa: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    marca: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    modelo: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    principal: Mapped[bool] = mapped_column(Boolean, default=False)
+
+  
+    cliente: Mapped[Cliente] = relationship(back_populates="vehiculos")
+
+    # keep backward-compatible attribute `anio` for Pydantic schemas and API
+    @property
+    def anio(self) -> int | None:
+        return self.ano
+
+    @anio.setter
+    def anio(self, value: int | None) -> None:
+        self.ano = value
+
+class Incidente(Base):
+    __tablename__ = "incidente"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
+
+    cliente_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("cliente.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    vehiculo_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("vehiculo.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    tipo: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    descripcion: Mapped[str | None] = mapped_column(Text, nullable=True)
+    estado: Mapped[str] = mapped_column(String(50), nullable=False, default="pendiente")
+    prioridad: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    latitud: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
+    longitud: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
+
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    cliente: Mapped[Cliente | None] = relationship()
+    vehiculo: Mapped[Vehiculo | None] = relationship()
+    evidencias: Mapped[list["Evidencia"]] = relationship(back_populates="incidente")
+    diagnosticos: Mapped[list["Diagnostico"]] = relationship(back_populates="incidente")
+
+class AsignacionServicio(Base):
+    __tablename__ = "asignacion_servicio"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    incidente_id: Mapped[str] = mapped_column(String(36), ForeignKey("incidente.id", ondelete="CASCADE"), nullable=False)
+    empleado_id: Mapped[str] = mapped_column(String(36), ForeignKey("empleado.id", ondelete="RESTRICT"), nullable=False)
+    servicio_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    empresa_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    estado_tarea: Mapped[str] = mapped_column(String(50), nullable=False, default="asignada")
+    tiempo_estimado_llegada_minutos: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    costo_servicio: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    porcentaje_comision: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    monto_comision: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    fecha_asignacion: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    fecha_cierre: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    motivo_cancelacion: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    incidente: Mapped[Incidente] = relationship()
+    empleado: Mapped[Empleado] = relationship()
+
+
+class Pago(Base):
+    __tablename__ = "pago"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    asignacion_id: Mapped[str] = mapped_column(String(36), ForeignKey("asignacion_servicio.id", ondelete="CASCADE"), nullable=False)
+    incidente_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("incidente.id", ondelete="SET NULL"), nullable=True)
+    cliente_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("cliente.id", ondelete="SET NULL"), nullable=True)
+    empresa_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("empresa.id", ondelete="SET NULL"), nullable=True)
+
+    monto_total: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    metodo_pago: Mapped[str] = mapped_column(String(30), nullable=False)
+    estado: Mapped[str] = mapped_column(String(30), nullable=False, default="pendiente")
+    comision_plataforma: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    monto_taller: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+
+    fecha_creacion: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    fecha_confirmacion: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    asignacion: Mapped[AsignacionServicio] = relationship()
+    incidente: Mapped[Incidente | None] = relationship()
+    cliente: Mapped[Cliente | None] = relationship()
+    empresa: Mapped[Empresa | None] = relationship()
+
+
+class Evidencia(Base):
+    __tablename__ = "evidencia"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    incidente_id: Mapped[str] = mapped_column(String(36), ForeignKey("incidente.id", ondelete="CASCADE"), nullable=False)
+    tipo: Mapped[str] = mapped_column(String(50), nullable=False)  # foto, audio, otro
+    url_archivo: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    texto: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    incidente: Mapped[Incidente] = relationship(back_populates="evidencias")
+
+
+class Diagnostico(Base):
+    __tablename__ = "diagnostico"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    incidente_id: Mapped[str] = mapped_column(String(36), ForeignKey("incidente.id", ondelete="CASCADE"), nullable=False)
+    clasificacion: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    resumen: Mapped[str | None] = mapped_column(Text, nullable=True)
+    prioridad: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    incidente: Mapped[Incidente] = relationship(back_populates="diagnosticos")

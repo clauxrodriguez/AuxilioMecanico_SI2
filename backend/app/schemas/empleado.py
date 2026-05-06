@@ -6,6 +6,19 @@ from app.schemas.common import ORMModel
 from app.schemas.role import RoleOut
 
 
+class MiAsignacionOut(BaseModel):
+    incidente_id: str
+    incidente_tipo: str | None = None
+    incidente_descripcion: str | None = None
+    incidente_estado: str | None = None
+    incidente_latitud: float | None = None
+    incidente_longitud: float | None = None
+    fecha_asignacion: str
+    estado_tarea: str
+    servicio_id: str | None = None
+    servicio_nombre: str | None = None
+
+
 class UsuarioOut(ORMModel):
     id: int
     username: str

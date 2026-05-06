@@ -15,6 +15,7 @@ import {
   RegisterEmpresaRequest,
   TokenResponse,
 } from '../../models/auth.models';
+import { PushNotificationService } from '../push-notification.service';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -32,6 +33,7 @@ export class AuthService {
   constructor(
     private readonly http: HttpClient,
     private readonly router: Router,
+    private readonly pushNotificationService: PushNotificationService,
   ) {
     this.restoreSession();
   }
@@ -55,14 +57,28 @@ export class AuthService {
   login(payload: LoginRequest): Observable<TokenResponse> {
     return this.http.post<TokenResponse>(`${environment.apiBaseUrl}/token/`, payload).pipe(
       tap((tokens) => this.applyTokens(tokens)),
-      switchMap((tokens) => this.loadMyPermissions().pipe(switchMap(() => of(tokens)))),
+      switchMap((tokens) =>
+        this.loadMyPermissions().pipe(
+          switchMap(() => {
+            this.registerPushNotificationsForCurrentUser();
+            return of(tokens);
+          })
+        )
+      ),
     );
   }
 
   register(payload: RegisterEmpresaRequest): Observable<TokenResponse> {
     return this.http.post<TokenResponse>(`${environment.apiBaseUrl}/register/`, payload).pipe(
       tap((tokens) => this.applyTokens(tokens)),
-      switchMap((tokens) => this.loadMyPermissions().pipe(switchMap(() => of(tokens)))),
+      switchMap((tokens) =>
+        this.loadMyPermissions().pipe(
+          switchMap(() => {
+            this.registerPushNotificationsForCurrentUser();
+            return of(tokens);
+          })
+        )
+      ),
     );
   }
 
@@ -73,14 +89,28 @@ export class AuthService {
   registerAdmin(payload: RegisterAdminRequest): Observable<TokenResponse> {
     return this.http.post<TokenResponse>(`${environment.apiBaseUrl}/register/admin/`, payload).pipe(
       tap((tokens) => this.applyTokens(tokens)),
-      switchMap((tokens) => this.loadMyPermissions().pipe(switchMap(() => of(tokens)))),
+      switchMap((tokens) =>
+        this.loadMyPermissions().pipe(
+          switchMap(() => {
+            this.registerPushNotificationsForCurrentUser();
+            return of(tokens);
+          })
+        )
+      ),
     );
   }
 
   activateEmployeeInvitation(payload: EmployeeInvitationActivateRequest): Observable<TokenResponse> {
     return this.http.post<TokenResponse>(`${environment.apiBaseUrl}/employee-invitations/activate/`, payload).pipe(
       tap((tokens) => this.applyTokens(tokens)),
-      switchMap((tokens) => this.loadMyPermissions().pipe(switchMap(() => of(tokens)))),
+      switchMap((tokens) =>
+        this.loadMyPermissions().pipe(
+          switchMap(() => {
+            this.registerPushNotificationsForCurrentUser();
+            return of(tokens);
+          })
+        )
+      ),
     );
   }
 
@@ -106,7 +136,29 @@ export class AuthService {
     return (user.roles || []).includes(roleName);
   }
 
-  logout(): void {
+  get isClient(): boolean {
+    const user = this.currentUser;
+    if (!user) {
+      return false;
+    }
+    return user.role === 'cliente' || (user.roles || []).includes('cliente');
+  }
+
+  get isAdmin(): boolean {
+    return !!this.currentUser?.is_admin;
+  }
+
+  getDefaultAppRoute(): string {
+    return this.isClient ? '/app/cliente/perfil' : '/app/empleados';
+  }
+
+  async logout(): Promise<void> {
+    try {
+      await this.pushNotificationService.clearTokenOnBackend();
+    } catch (error) {
+      console.error('[AuthService] Error clearing FCM token on logout:', error);
+    }
+
     localStorage.removeItem(this.tokenKey);
     localStorage.removeItem(this.refreshKey);
     this.isAuthenticatedSubject.next(false);
@@ -139,17 +191,22 @@ export class AuthService {
     try {
       const decoded = jwtDecode<DecodedToken>(token);
       if (decoded.exp * 1000 <= Date.now()) {
-        this.logout();
+        void this.logout();
         return;
       }
 
       this.isAuthenticatedSubject.next(true);
       this.decodedTokenSubject.next(decoded);
       this.loadMyPermissions().subscribe({
+        next: () => {
+          if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+            this.registerPushNotificationsForCurrentUser();
+          }
+        },
         error: () => this.permissionsSubject.next([]),
       });
     } catch {
-      this.logout();
+      void this.logout();
     }
   }
 
@@ -160,5 +217,17 @@ export class AuthService {
     const decoded = jwtDecode<DecodedToken>(tokens.access);
     this.decodedTokenSubject.next(decoded);
     this.isAuthenticatedSubject.next(true);
+  }
+
+  private registerPushNotificationsForCurrentUser(): void {
+    console.log('[AuthService] Registering push notifications for user:', this.currentUser?.username);
+    void this.pushNotificationService.requestPermission().then((token) => {
+      if (token) {
+        console.log('[AuthService] FCM token obtained, sending to backend');
+        void this.pushNotificationService.sendTokenToBackend(token);
+      } else {
+        console.log('[AuthService] User denied notification permission or token unavailable');
+      }
+    });
   }
 }

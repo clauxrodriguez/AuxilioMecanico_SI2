@@ -29,7 +29,7 @@ Editar `src/environments/environment.ts`:
 ## Ejecutar
 
 Desde `/frontend`:
-
+npm install firebase
 ```bash
 npm install
 npm start

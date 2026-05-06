@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { AuthService } from '../../services/auth/auth.service';
 import { UserManagementApiService } from '../../services/user-management-api.service';
@@ -9,7 +10,7 @@ import { Permiso, Rol } from '../../models/user-management.models';
 @Component({
   selector: 'app-rol',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink],
   template: `
     <section class="card page-block">
       <header class="head">
@@ -17,11 +18,13 @@ import { Permiso, Rol } from '../../models/user-management.models';
           <h2>Roles</h2>
           <p class="muted">Asigna permisos a roles para control de acceso.</p>
         </div>
+        <a *ngIf="!isCreateView && canManage" [routerLink]="['/app/roles/nuevo']" class="btn btn-primary">Registrar rol</a>
+        <a *ngIf="isCreateView" [routerLink]="['/app/roles']" class="btn btn-ghost">Volver al listado</a>
       </header>
 
       <p class="error" *ngIf="errorMsg">{{ errorMsg }}</p>
 
-      <form class="card inner" [formGroup]="form" (ngSubmit)="save()" *ngIf="canManage">
+      <form class="card inner" [formGroup]="form" (ngSubmit)="save()" *ngIf="canManage && isCreateView">
         <h3>{{ editingId ? 'Editar rol' : 'Nuevo rol' }}</h3>
 
         <div>
@@ -50,7 +53,7 @@ import { Permiso, Rol } from '../../models/user-management.models';
         </div>
       </form>
 
-      <table class="table">
+      <table class="table" *ngIf="!isCreateView">
         <thead>
           <tr>
             <th>Rol</th>
@@ -65,7 +68,7 @@ import { Permiso, Rol } from '../../models/user-management.models';
               <span class="badge" *ngFor="let p of rol.permisos">{{ p.nombre }}</span>
             </td>
             <td *ngIf="canManage">
-              <button class="btn btn-ghost" (click)="edit(rol)">Editar</button>
+              <button class="btn btn-ghost" (click)="openEdit(rol)">Editar</button>
               <button class="btn btn-danger" (click)="remove(rol)">Eliminar</button>
             </td>
           </tr>
@@ -126,6 +129,7 @@ import { Permiso, Rol } from '../../models/user-management.models';
 })
 export class RolComponent implements OnInit {
   roles: Rol[] = [];
+  isCreateView = false;
   permisosCatalogo: Permiso[] = [];
   selectedPermissionIds = new Set<string>();
   editingId: string | null = null;
@@ -140,6 +144,7 @@ export class RolComponent implements OnInit {
     private readonly api: UserManagementApiService,
     private readonly auth: AuthService,
     private readonly fb: FormBuilder,
+    private readonly route: ActivatedRoute,
   ) {}
 
   get canManage(): boolean {
@@ -147,6 +152,12 @@ export class RolComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.route.url.subscribe((segments) => {
+      this.isCreateView = segments.some((s) => s.path === 'nuevo');
+      if (this.isCreateView) {
+        this.resetForm();
+      }
+    });
     this.fetchAll();
   }
 
@@ -183,6 +194,11 @@ export class RolComponent implements OnInit {
     this.editingId = rol.id;
     this.form.patchValue({ nombre: rol.nombre });
     this.selectedPermissionIds = new Set(rol.permisos.map((p) => p.id));
+  }
+
+  openEdit(rol: Rol): void {
+    this.edit(rol);
+    this.isCreateView = true;
   }
 
   resetForm(): void {

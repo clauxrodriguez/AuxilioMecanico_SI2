@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/location_provider.dart';
 import '../../data/api_service.dart';
 import '../../models/user.dart';
 import '../../widgets/custom_app_bar.dart';
@@ -77,6 +78,124 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
             // Tarjeta de información del empleado
             _EmployeeInfoCard(user: user),
 
+            const SizedBox(height: 24),
+
+            // Botón de actualizar ubicación
+            Consumer<LocationProvider>(
+              builder: (context, locationProvider, _) {
+                return Card(
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.amber.withOpacity(0.05),
+                      border: Border.all(
+                        color: Colors.amber.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.location_on,
+                              color: Colors.amber.shade700,
+                              size: 24,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Mi Ubicación',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                  ),
+                                  if (locationProvider.lastLocationUpdate !=
+                                      null)
+                                    Text(
+                                      'Última actualización: ${locationProvider.lastLocationUpdate!.toLocal().toString().split('.')[0]}',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(color: Colors.grey),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (locationProvider.locationError != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                locationProvider.locationError ?? '',
+                                style: const TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: locationProvider.isUpdatingLocation
+                                ? null
+                                : () async {
+                                    final success = await locationProvider
+                                        .obtenerYActualizarUbicacion();
+                                    if (success && mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Ubicación actualizada',
+                                          ),
+                                          duration: Duration(seconds: 2),
+                                        ),
+                                      );
+                                    }
+                                  },
+                            icon: locationProvider.isUpdatingLocation
+                                ? SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation(
+                                        Colors.amber.shade700,
+                                      ),
+                                    ),
+                                  )
+                                : const Icon(Icons.refresh),
+                            label: Text(
+                              locationProvider.isUpdatingLocation
+                                  ? 'Actualizando...'
+                                  : 'Actualizar Ubicación Ahora',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+
             const SizedBox(height: 32),
 
             // Secciones disponibles
@@ -101,11 +220,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
                   subtitle: 'Ver mis datos',
                   color: Colors.blue,
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Perfil en desarrollo'),
-                      ),
-                    );
+                    Navigator.pushNamed(context, '/empleado/perfil');
                   },
                 ),
                 _FeatureTile(
@@ -114,11 +229,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
                   subtitle: 'Mis tareas pendientes',
                   color: Colors.orange,
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Tareas en desarrollo'),
-                      ),
-                    );
+                    Navigator.pushNamed(context, '/empleado/asignaciones');
                   },
                 ),
                 _FeatureTile(
@@ -140,11 +251,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
                   subtitle: 'Ver notificaciones',
                   color: Colors.purple,
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Notificaciones en desarrollo'),
-                      ),
-                    );
+                    Navigator.pushNamed(context, '/notificaciones');
                   },
                 ),
               ],
@@ -227,7 +334,9 @@ class _EmployeeInfoCard extends StatelessWidget {
                   radius: 40,
                   backgroundColor: Colors.white,
                   child: Text(
-                    (user?.fullName ?? 'E')[0].toUpperCase(),
+                        (user?.fullName ?? '').isNotEmpty
+                            ? (user?.fullName ?? '')[0].toUpperCase()
+                            : 'E',
                     style: const TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
@@ -246,12 +355,16 @@ class _EmployeeInfoCard extends StatelessWidget {
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
                             ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       Text(
                         '@${user?.username ?? 'username'}',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Colors.white70,
                             ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),

@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { AuthService } from '../../services/auth/auth.service';
 import { UserManagementApiService } from '../../services/user-management-api.service';
@@ -9,7 +10,7 @@ import { Permiso } from '../../models/user-management.models';
 @Component({
   selector: 'app-permiso',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink],
   template: `
     <section class="card page-block">
       <header class="head">
@@ -17,11 +18,13 @@ import { Permiso } from '../../models/user-management.models';
           <h2>Permisos</h2>
           <p class="muted">Gestion global de permisos (crear, editar y eliminar).</p>
         </div>
+        <a *ngIf="!isCreateView && canManage" [routerLink]="['/app/permisos/nuevo']" class="btn btn-primary">Registrar permiso</a>
+        <a *ngIf="isCreateView" [routerLink]="['/app/permisos']" class="btn btn-ghost">Volver al listado</a>
       </header>
 
       <p class="error" *ngIf="errorMsg">{{ errorMsg }}</p>
 
-      <form class="form-grid card inner" [formGroup]="form" (ngSubmit)="save()" *ngIf="canManage">
+      <form class="form-grid card inner" [formGroup]="form" (ngSubmit)="save()" *ngIf="canManage && isCreateView">
         <h3>{{ editingId ? 'Editar permiso' : 'Nuevo permiso' }}</h3>
         <div>
           <label class="label">Nombre</label>
@@ -39,7 +42,7 @@ import { Permiso } from '../../models/user-management.models';
         </div>
       </form>
 
-      <table class="table">
+      <table class="table" *ngIf="!isCreateView">
         <thead>
           <tr>
             <th>Nombre</th>
@@ -52,7 +55,7 @@ import { Permiso } from '../../models/user-management.models';
             <td>{{ permiso.nombre }}</td>
             <td>{{ permiso.descripcion }}</td>
             <td *ngIf="canManage">
-              <button class="btn btn-ghost" (click)="edit(permiso)">Editar</button>
+              <button class="btn btn-ghost" (click)="openEdit(permiso)">Editar</button>
               <button class="btn btn-danger" (click)="remove(permiso)">Eliminar</button>
             </td>
           </tr>
@@ -90,6 +93,7 @@ import { Permiso } from '../../models/user-management.models';
 })
 export class PermisoComponent implements OnInit {
   permisos: Permiso[] = [];
+  isCreateView = false;
   editingId: string | null = null;
   loading = false;
   errorMsg = '';
@@ -103,6 +107,7 @@ export class PermisoComponent implements OnInit {
     private readonly api: UserManagementApiService,
     private readonly auth: AuthService,
     private readonly fb: FormBuilder,
+    private readonly route: ActivatedRoute,
   ) {}
 
   get canManage(): boolean {
@@ -110,6 +115,12 @@ export class PermisoComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.route.url.subscribe((segments) => {
+      this.isCreateView = segments.some((s) => s.path === 'nuevo');
+      if (this.isCreateView) {
+        this.resetForm();
+      }
+    });
     this.fetchPermisos();
   }
 
@@ -130,6 +141,11 @@ export class PermisoComponent implements OnInit {
       nombre: permiso.nombre,
       descripcion: permiso.descripcion,
     });
+  }
+
+  openEdit(permiso: Permiso): void {
+    this.edit(permiso);
+    this.isCreateView = true;
   }
 
   resetForm(): void {
