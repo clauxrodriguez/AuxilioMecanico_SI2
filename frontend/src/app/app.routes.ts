@@ -1,33 +1,33 @@
 import { Routes } from '@angular/router';
-import { authGuard } from './guards/auth/auth.guard';
-import { HomeComponent } from './components/auth/home/home.component';
-import { LoginComponent } from './components/auth/login/login.component';
-import { RegisterComponent } from './components/auth/register/register.component';
-import { ActivateInviteComponent } from './components/auth/activate-invite/activate-invite.component';
-import { MainLayoutComponent } from './layouts/main-layout/main-layout.component';
-import { EmpleadoComponent } from './components/empleado/empleado.component';
-import { EmpleadoPanelComponent } from './components/empleado/empleado-panel.component';
-import { CargoComponent } from './components/cargo/cargo.component';
-import { RolComponent } from './components/rol/rol.component';
-import { PermisoComponent } from './components/permisos/permiso.component';
-import { ClientesComponent } from './components/clientes/clientes.component';
-import { ClienteCreateComponent } from './components/clientes/cliente-create.component';
-import { ClienteDetailComponent } from './components/clientes/cliente-detail.component';
-import { VehiculosComponent } from './components/vehiculos/vehiculos.component';
-import { IncidentesComponent } from './components/incidentes/incidentes.component';
-import { IncidentesComponent as SolicitudIncidentesComponent } from './components/solicitud_incidentes/solicitud_incidentes.component';
-import { AsignacionesEmpleadoComponent } from './components/asignaciones/asignaciones-empleado.component';
-import { ServicioComponent } from './components/servicio/servicio.component';
-import { UbicacionTallerComponent } from './components/taller/ubicacion-taller.component';
-import { PagosComponent } from './components/taller/pagos.component';
-import { ReportesComponent } from './components/taller/reportes.component';
-import { ConfiguracionComponent } from './components/taller/configuracion.component';
-import { AdminProfileComponent } from './components/taller/admin-profile.component';
-import { AdminNotificationsComponent } from './components/taller/admin-notifications.component';
-import { AdminSolicitudesPendientesComponent } from './components/taller/admin-solicitudes-pendientes.component';
-import { AdminSolicitudesAsignadasComponent } from './components/taller/admin-solicitudes-asignadas.component';
-import { AdminSolicitudesEnProcesoComponent } from './components/taller/admin-solicitudes-enproceso.component';
-import { AdminSolicitudesAtendidasComponent } from './components/taller/admin-solicitudes-atendidas.component';
+import { authGuard } from './core/guardias/autenticacion.guardia';
+import { HomeComponent } from './features/auth/inicio/inicio.component';
+import { LoginComponent } from './features/auth/iniciar_sesion/iniciar_sesion.component';
+import { RegisterComponent } from './features/auth/registro_usuario/registro_usuario.component';
+import { ActivateInviteComponent } from './features/auth/activar_invitacion/activar_invitacion.component';
+import { MainLayoutComponent } from './core/layouts/diseno_principal/diseno_principal.component';
+import { EmpleadoComponent } from './features/administrador/empleados/empleados.component';
+import { EmpleadoPanelComponent } from './features/empleado/empresas/sucursales/auxilio_mecanico/panel_operativo/panel_operativo.component';
+import { CargoComponent } from './features/administrador/catalogos/cargos/cargos.component';
+import { RolComponent } from './features/administrador/catalogos/roles/roles.component';
+import { PermisoComponent } from './features/administrador/catalogos/permisos/permisos.component';
+import { ClientesComponent } from './features/administrador/clientes/clientes.component';
+import { ClienteCreateComponent } from './features/clientes/crear_cliente/crear_cliente.component';
+import { ClienteDetailComponent } from './features/clientes/detalle_cliente/detalle_cliente.component';
+import { VehiculosComponent } from './features/administrador/vehiculos/vehiculos.component';
+import { IncidentesComponent } from './features/administrador/gestion_incidentes/gestion_incidentes.component';
+import { IncidentesComponent as SolicitudIncidentesComponent } from './features/empleado/empresas/sucursales/auxilio_mecanico/solicitud_incidentes/solicitud_incidentes.component';
+import { AsignacionesEmpleadoComponent } from './features/empleado/empresas/sucursales/auxilio_mecanico/asignaciones/asignaciones_empleado.component';
+import { ServicioComponent } from './features/administrador/catalogos/servicios/servicios.component';
+import { UbicacionTallerComponent } from './features/administrador/ubicacion_taller/ubicacion_taller.component';
+import { PagosComponent } from './features/administrador/pagos/pagos.component';
+import { ReportesComponent } from './features/administrador/reportes/reportes.component';
+import { ConfiguracionComponent } from './features/administrador/configuracion/configuracion.component';
+import { AdminProfileComponent } from './features/administrador/perfil_admin/perfil_admin.component';
+import { AdminNotificationsComponent } from './features/administrador/notificaciones_admin/notificaciones_admin.component';
+import { AdminSolicitudesPendientesComponent } from './features/administrador/solicitudes/pendientes/solicitudes_pendientes.component';
+import { AdminSolicitudesAsignadasComponent } from './features/administrador/solicitudes/asignadas/solicitudes_asignadas.component';
+import { AdminSolicitudesEnProcesoComponent } from './features/administrador/solicitudes/en_proceso/solicitudes_en_proceso.component';
+import { AdminSolicitudesAtendidasComponent } from './features/administrador/solicitudes/atendidas/solicitudes_atendidas.component';
 
 export const appRoutes: Routes = [
   { path: '', component: HomeComponent },
@@ -58,12 +58,12 @@ export const appRoutes: Routes = [
       {
         path: 'cliente/perfil',
         loadComponent: () =>
-          import('./components/clientes/client-profile.component').then((m) => m.ClientProfileComponent),
+          import('./features/clientes/perfil_cliente/perfil_cliente.component').then((m) => m.ClientProfileComponent),
       },
       {
         path: 'cliente/historial',
         loadComponent: () =>
-          import('./components/incidentes/incident-history.component').then((m) => m.IncidentHistoryComponent),
+          import('./features/clientes/historial_solicitudes/historial_solicitudes.component').then((m) => m.IncidentHistoryComponent),
       },
       { path: 'vehiculos', component: VehiculosComponent },
       { path: 'incidentes', component: IncidentesComponent },
