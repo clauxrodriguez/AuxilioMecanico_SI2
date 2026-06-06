@@ -22,14 +22,9 @@ export class SidebarComponent implements OnInit {
 
   ngOnInit(): void {
     if (!this.auth.isClient) {
-      this.empresaApi.getMyEmpresa().subscribe({
-        next: (data) => {
-          this.empresa = data;
-        },
-        error: (err) => {
-          console.error('Error cargando datos de la empresa:', err);
-        },
-      });
+      // subscribe to empresa updates and request an initial refresh
+      this.empresaApi.empresa$.subscribe({ next: (d) => (this.empresa = d), error: (err: any) => console.error(err) });
+      this.empresaApi.refreshMyEmpresa().subscribe({ error: (err: any) => console.error('Error cargando datos de la empresa:', err) });
     }
   }
 

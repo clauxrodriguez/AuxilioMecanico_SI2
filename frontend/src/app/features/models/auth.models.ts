@@ -63,6 +63,7 @@ export interface EmployeeInvitationActivateRequest {
 }
 
 export interface DecodedToken {
+	sub: string;
 	username: string;
 	email: string;
 	nombre_completo: string;

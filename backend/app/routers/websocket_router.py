@@ -1,6 +1,6 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 from pydantic import ValidationError
-from app.services.websocket_manager import tracking_ws_manager
+from app.services.websocket_manager import tracking_ws_manager, notification_ws_manager
 from app.schemas.tracking import TrackingSchema
 import json
 import logging
@@ -9,6 +9,24 @@ logger = logging.getLogger(__name__)
 
 # Prefijo dedicado a los WebSockets de rastreo
 router = APIRouter(prefix="/ws/tracking", tags=["websocket-tracking"])
+
+@router.websocket("/notifications/{user_id}")
+async def notifications_websocket(websocket: WebSocket, user_id: str) -> None:
+    """
+    Endpoint WebSocket para recibir notificaciones de sistema en tiempo real.
+    """
+    await notification_ws_manager.connect(user_id, websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            if data == "ping":
+                await websocket.send_text("pong")
+    except WebSocketDisconnect:
+        notification_ws_manager.disconnect(user_id, websocket)
+    except Exception as e:
+        logger.error(f"Error en socket de notificaciones para usuario {user_id}: {e}")
+        notification_ws_manager.disconnect(user_id, websocket)
+
 
 @router.websocket("/{incidente_id}/{role}")
 async def tracking_websocket(websocket: WebSocket, incidente_id: str, role: str) -> None:
@@ -79,3 +97,5 @@ async def tracking_websocket(websocket: WebSocket, incidente_id: str, role: str)
             code=status.WS_1008_POLICY_VIOLATION, 
             reason="Rol no permitido. Debe ser 'client' o 'technician'"
         )
+
+

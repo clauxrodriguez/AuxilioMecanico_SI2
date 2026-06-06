@@ -16,6 +16,7 @@ import { ClienteApiService, VehiculoDto } from '../../services/cliente.service';
 import { AuthService } from '../../services/auth/auth.service';
 import { EmpleadoApiService, MiAsignacionDto } from '../../services/empleado.service';
 import { UserManagementApiService } from '../../services/user-management-api.service';
+import { EmpresaApiService } from '../../../../../../core/servicios/empresas.api.service';
 import type { Servicio } from '../../models/user-management.models';
 import type { Empleado } from '../../models/user-management.models';
 
@@ -63,6 +64,7 @@ export class IncidentesComponent implements OnInit {
   constructor(
     private api: IncidenteApiService,
     public readonly auth: AuthService,
+    private readonly empresaApi: EmpresaApiService,
     private empleadoApi: EmpleadoApiService,
     private clienteApi: ClienteApiService,
     private userManagementApi: UserManagementApiService,
@@ -166,7 +168,7 @@ export class IncidentesComponent implements OnInit {
           this.incidents = this.assignedIncidents.map((item) => this.mapAsignacionToIncidente(item));
           this.loading = false;
         },
-        error: (err) => {
+        error: (err: any) => {
           console.error('[cargarIncidentes] Error loading asignaciones:', err);
           this.mostrarMensaje('Error al cargar tus asignaciones', 'error');
           this.loading = false;
@@ -196,7 +198,7 @@ export class IncidentesComponent implements OnInit {
         }
         this.loading = false;
       },
-      error: (err) => {
+      error: (err: any) => {
         this.mostrarMensaje('Error al cargar incidentes', 'error');
         this.loading = false;
       },
@@ -419,6 +421,35 @@ cargarTecnicosCercanos(incidente: IncidenteDto): void {
       error: () => {
         this.mostrarMensaje('Error al asignar tÃ©cnico', 'error');
         this.asignando = false;
+      },
+    });
+  }
+
+  aceptarSolicitud(incidente: IncidenteDto): void {
+    this.api.acceptIncident(incidente.id).subscribe({
+      next: (updated) => {
+        this.mostrarMensaje('Solicitud aceptada', 'success');
+        this.cargarIncidentes();
+        // refresh empresa data to update rating in UI
+        this.empresaApi.refreshMyEmpresa().subscribe({ next: () => {}, error: (err: any) => console.error('Error refrescando empresa:', err) });
+      },
+      error: (err: any) => {
+        console.error('Error aceptando incidente:', err);
+        this.mostrarMensaje('No se pudo aceptar la solicitud', 'error');
+      },
+    });
+  }
+
+  cancelarAceptacion(incidente: IncidenteDto): void {
+    this.api.cancelAcceptance(incidente.id).subscribe({
+      next: (updated) => {
+        this.mostrarMensaje('Aceptación cancelada', 'success');
+        this.cargarIncidentes();
+        this.empresaApi.refreshMyEmpresa().subscribe({ next: () => {}, error: (err: any) => console.error('Error refrescando empresa:', err) });
+      },
+      error: (err: any) => {
+        console.error('Error cancelando aceptación:', err);
+        this.mostrarMensaje('No se pudo cancelar la aceptación', 'error');
       },
     });
   }

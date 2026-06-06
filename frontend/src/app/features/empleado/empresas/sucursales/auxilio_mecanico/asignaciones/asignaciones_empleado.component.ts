@@ -62,7 +62,7 @@ export class AsignacionesEmpleadoComponent implements OnInit {
         this.solicitudesAtendidas = ordenadas.filter((item) => this.esAtendida(item));
         this.loading = false;
       },
-      error: (err) => {
+      error: (err: any) => {
         console.error('[AsignacionesEmpleado] Error cargando asignaciones:', err);
         this.loading = false;
         this.mostrarMensaje('No se pudieron cargar tus asignaciones', 'error');

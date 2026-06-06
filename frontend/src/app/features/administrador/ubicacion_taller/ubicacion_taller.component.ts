@@ -97,7 +97,7 @@ export class UbicacionTallerComponent implements AfterViewInit, OnDestroy {
           this.setMarker(pos.coords.latitude, pos.coords.longitude);
         });
       },
-      (err) => {
+      (err: any) => {
         this.ngZone.run(() => {
           this.message = 'No se pudo obtener la ubicación: ' + err.message;
         });
@@ -122,7 +122,7 @@ export class UbicacionTallerComponent implements AfterViewInit, OnDestroy {
           if (this.map) this.map.setView([ -17.783737, -63.182103 ], 6);
         }
       },
-      error: (err) => {
+      error: (err: any) => {
         this.message = 'Error cargando empresa: ' + (err?.error?.detail ?? err.message ?? '');
       },
     });
@@ -135,7 +135,7 @@ export class UbicacionTallerComponent implements AfterViewInit, OnDestroy {
       next: (res) => {
         this.message = 'Ubicación guardada correctamente.';
       },
-      error: (err) => {
+      error: (err: any) => {
         this.message = 'Error guardando ubicación: ' + (err?.error?.detail ?? err.message ?? '');
       },
     });

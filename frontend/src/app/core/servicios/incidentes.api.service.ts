@@ -10,10 +10,12 @@ export interface IncidenteDto {
   tipo?: string;
   descripcion?: string;
   estado: string;
+  accepted_empresa_id?: string | null;
   prioridad?: number;
   latitud?: number;
   longitud?: number;
   creado_en: string;
+  evidencias?: { id: string; tipo: string; url_archivo: string; texto?: string }[];
 }
 
 export interface IncidenteCreateRequest {
@@ -135,6 +137,10 @@ export class IncidenteApiService {
 
   acceptIncident(id: string) {
     return this.http.post<IncidenteDto>(`${this.base}/incidentes/${id}/aceptar-solicitud`, {});
+  }
+
+  cancelAcceptance(id: string) {
+    return this.http.post<IncidenteDto>(`${this.base}/incidentes/${id}/cancelar-aceptacion`, {});
   }
 
   updateMiUbicacion(payload: TecnicoUbicacionRequest) {

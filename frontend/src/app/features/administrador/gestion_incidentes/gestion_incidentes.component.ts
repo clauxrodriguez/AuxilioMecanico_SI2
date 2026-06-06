@@ -13,6 +13,7 @@ import {
 } from '../../services/incidente.service';
 import { AuthService } from '../../services/auth/auth.service';
 import { ClienteApiService, VehiculoDto } from '../../services/cliente.service';
+import { EmpresaApiService } from '../../../core/servicios/empresas.api.service';
 
 @Component({
   selector: 'app-incidentes',
@@ -81,9 +82,10 @@ export class IncidentesComponent implements OnInit, AfterViewInit, OnDestroy {
 
   constructor(
     private api: IncidenteApiService,
-    private auth: AuthService,
+    public auth: AuthService,
     private clienteApi: ClienteApiService,
     private router: Router,
+    private empresaApi: EmpresaApiService,
   ) {}
 
   ngOnInit(): void {
@@ -512,11 +514,27 @@ export class IncidentesComponent implements OnInit, AfterViewInit, OnDestroy {
       next: () => {
         this.message = 'Solicitud aceptada';
         this.load();
+        this.empresaApi.refreshMyEmpresa().subscribe({ next: () => {}, error: (err: any) => console.error('Error refrescando empresa:', err) });
       },
-      error: (err) => {
+      error: (err: any) => {
         console.error('Error aceptando incidente:', err);
         this.message = 'No se pudo aceptar la solicitud';
       },
+    });
+  }
+
+  cancelarAceptacion(it: IncidenteDto) {
+    this.api.cancelAcceptance(it.id).subscribe({
+      next: () => {
+        this.message = 'Aceptación cancelada';
+        this.load();
+        this.empresaApi.refreshMyEmpresa().subscribe({ next: () => {}, error: (err: any) => console.error('Error refrescando empresa:', err) });
+      },
+      error: (err: any) => {
+        console.error('Error cancelando aceptación:', err);
+        this.message = 'No se pudo cancelar la aceptación';
+      },
+
     });
   }
 

@@ -123,7 +123,7 @@ async def incidentes_asignar_tecnico(
 
 @router.post("/{incidente_id}/aceptar-solicitud", response_model=IncidenteOut)
 def incidentes_aceptar_solicitud(incidente_id: str, user=Depends(require_permission("manage_incidentes")), db: Session = Depends(get_db)) -> IncidenteOut:
-    """Taller acepta la solicitud (dentro de 30s desde que apareció)."""
+    """Taller acepta la solicitud. Después de aceptar se podrá asignar técnico."""
     try:
         inc = get_incidente_or_404(db, incidente_id)
     except ValueError:

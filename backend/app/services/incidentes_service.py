@@ -116,11 +116,14 @@ def assign_tecnico(
         servicio_id=servicio_id,
         empresa_id=empleado.empresa_id,
     )
-    if incidente.estado == "pendiente":
-        incidente.estado = "asignada"
-        db.add(incidente)
-        db.commit()
-        db.refresh(incidente)
+    # Only allow assigning a technician after the incidente has been accepted
+    if incidente.estado != "aceptada":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Solo se puede asignar un técnico a solicitudes aceptadas")
+
+    incidente.estado = "asignada"
+    db.add(incidente)
+    db.commit()
+    db.refresh(incidente)
 
     # notify the assigned employee (push)
     try:

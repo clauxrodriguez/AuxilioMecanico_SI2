@@ -139,15 +139,29 @@
 
           <!-- Botones de acción -->
           <div class="card-actions">
-            <button class="btn btn-secondary" (click)="abrirMapa(incidente)">
-              📍 Ver en mapa
-            </button>
-            <button class="btn btn-primary" (click)="abrirModalAsignar(incidente)" [disabled]="incidente.estado !== 'pendiente'">
-              👤 Asignar técnico
-            </button>
-            <button class="btn btn-ghost" (click)="verTracking(incidente)">
-              📊 Ver tracking
-            </button>
+            <!-- SOLO CUANDO ESTÁ PENDIENTE: Solo botón Aceptar -->
+            <ng-container *ngIf="incidente.estado === 'pendiente'">
+              <button class="btn btn-primary" (click)="aceptarSolicitud(incidente)">
+                ✓ Aceptar Solicitud
+              </button>
+            </ng-container>
+
+            <!-- DESPUÉS DE ACEPTAR: Mostrar los demás botones -->
+            <ng-container *ngIf="incidente.estado !== 'pendiente'">
+              <button class="btn btn-secondary" (click)="abrirMapa(incidente)">
+                📍 Ver en mapa
+              </button>
+              <button class="btn btn-ghost" (click)="verTracking(incidente)">
+                📊 Ver tracking
+              </button>
+              <!-- Mostrar botón Asignar solo si ya fue aceptada por esta empresa -->
+              <button class="btn btn-primary" *ngIf="incidente.estado === 'aceptada' && incidente.accepted_empresa_id === auth.currentUser?.empresa_id" (click)="abrirModalAsignar(incidente)">
+                👤 Asignar técnico
+              </button>
+              <button class="btn btn-danger" *ngIf="incidente.estado === 'aceptada' && incidente.accepted_empresa_id === auth.currentUser?.empresa_id" (click)="cancelarAceptacion(incidente)">
+                ✖ Cancelar servicio
+              </button>
+            </ng-container>
           </div>
         </div>
       </div>

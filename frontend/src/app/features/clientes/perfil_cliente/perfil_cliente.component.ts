@@ -79,6 +79,8 @@ export class ClientProfileComponent implements OnInit {
       const tab = params.get('tab');
       if (tab === 'seguimiento') {
         this.activeSection = 'seguimiento';
+      } else if (tab === 'notificaciones') {
+        this.setSection('notificaciones');
       }
     });
 
@@ -230,7 +232,7 @@ export class ClientProfileComponent implements OnInit {
         // navigate to incidents or just notify
         alert('Solicitud creada correctamente');
       },
-      error: (err) => {
+      error: (err: any) => {
         this.submitting = false;
         this.errorMsg = err?.error?.detail || 'Error al crear la solicitud';
       },
@@ -244,7 +246,7 @@ export class ClientProfileComponent implements OnInit {
         this.misSolicitudes = data || [];
         this.loadingSolicitudes = false;
       },
-      error: (err) => {
+      error: (err: any) => {
         this.loadingSolicitudes = false;
         this.errorMsg = err?.error?.detail || 'Error al cargar solicitudes';
       },

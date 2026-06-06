@@ -72,3 +72,46 @@ class ConnectionManager:
 
 # Instancia global única para toda la aplicación
 tracking_ws_manager = ConnectionManager()
+
+
+class NotificationConnectionManager:
+    """
+    Gestiona las conexiones WebSocket activas para el envío de notificaciones en tiempo real.
+    Permite enviar alertas personalizadas a usuarios específicos.
+    """
+    def __init__(self):
+        # Mapea user_id (str) -> conjunto de conexiones WebSocket del usuario
+        self.active_connections: Dict[str, Set[WebSocket]] = {}
+
+    async def connect(self, user_id: str, websocket: WebSocket) -> None:
+        """Acepta la conexión WebSocket de un usuario para notificaciones."""
+        await websocket.accept()
+        if user_id not in self.active_connections:
+            self.active_connections[user_id] = set()
+        self.active_connections[user_id].add(websocket)
+        logger.info(f"Usuario {user_id} conectado para recibir notificaciones en tiempo real.")
+
+    def disconnect(self, user_id: str, websocket: WebSocket) -> None:
+        """Remueve la conexión activa del usuario."""
+        if user_id in self.active_connections:
+            self.active_connections[user_id].discard(websocket)
+            if not self.active_connections[user_id]:
+                del self.active_connections[user_id]
+        logger.info(f"Usuario {user_id} desconectado del servicio de notificaciones.")
+
+    async def send_to_user(self, user_id: str, message: dict) -> None:
+        """Envía una notificación en formato JSON a todas las conexiones activas de un usuario."""
+        if user_id in self.active_connections:
+            disconnected_sockets = set()
+            for connection in list(self.active_connections[user_id]):
+                try:
+                    await connection.send_json(message)
+                except Exception as e:
+                    logger.error(f"Error enviando notificación a usuario {user_id}: {e}")
+                    disconnected_sockets.add(connection)
+            for ws in disconnected_sockets:
+                self.disconnect(user_id, ws)
+
+
+notification_ws_manager = NotificationConnectionManager()
+

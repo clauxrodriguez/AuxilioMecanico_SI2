@@ -36,6 +36,26 @@ def _store_notification(
         )
         db.add(notification)
         db.commit()
+        db.refresh(notification)
+
+        # Retransmitir en tiempo real vía WebSocket
+        try:
+            import asyncio
+            from app.services.websocket_manager import notification_ws_manager
+            payload = {
+                "id": notification.id,
+                "titulo": titulo,
+                "mensaje": mensaje,
+                "tipo": tipo or "",
+                "data": data or {},
+                "leida": False,
+                "creada_en": notification.creada_en.isoformat() if notification.creada_en else None,
+            }
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop.create_task(notification_ws_manager.send_to_user(str(user_id), payload))
+        except Exception as ws_err:
+            logger.error(f"Error enviando notificacion por WebSocket: {ws_err}")
     except Exception:
         logger.exception("Error guardando notificación para user_id=%s", user_id)
 
@@ -100,7 +120,7 @@ def _notify_staff_users(
     user_ids_sent: set[int] | None = None,
 ) -> set[int]:
     sent_ids = user_ids_sent or set()
-    stmt_users = select(User).where(User.is_staff == True, User.fcm_token.isnot(None))
+    stmt_users = select(User).where(User.is_staff == True)
     staff_users = db.execute(stmt_users).scalars().all()
 
     for staff_user in staff_users:
@@ -138,10 +158,10 @@ def notify_new_incident(db: Session, incidente: Incidente) -> None:
             "titulo": titulo,
         }
 
-        # First: admins that are Empleado with fcm_token
-        stmt_emp = select(Empleado).where(Empleado.fcm_token.isnot(None))
+        # First: all admins that are Empleado (regardless of FCM token)
+        stmt_emp = select(Empleado)
         empleados = db.execute(stmt_emp).scalars().all()
-        admin_emps = [e for e in empleados if (e.usuario and getattr(e.usuario, "is_staff", False)) or any((r.nombre or "").lower() == "admin" for r in (e.roles or []))]
+        admin_emps = [e for e in empleados if (e.usuario and getattr(e.usuario, "is_staff", False)) or any("admin" in (r.nombre or "").lower() for r in (e.roles or []))]
 
         user_ids_sent = set()
         for emp in admin_emps:
@@ -312,10 +332,10 @@ def notify_incidente_atendido(db: Session, incidente_id: str, actor_empleado_id:
             descripcion_admin = f"La solicitud de {tipo} (ID {incidente.id}) fue atendida"
         data_admin = {"incidente_id": incidente.id, "tipo": tipo, "estado": incidente.estado or '', "actor_nombre": actor_name or "", "titulo": titulo_admin}
 
-        # Admin Empleados with fcm_token
-        stmt_emp = select(Empleado).where(Empleado.fcm_token.isnot(None))
+        # Admin Empleados (regardless of FCM token)
+        stmt_emp = select(Empleado)
         empleados = db.execute(stmt_emp).scalars().all()
-        admin_emps = [e for e in empleados if (e.usuario and getattr(e.usuario, "is_staff", False)) or any((r.nombre or "").lower() == "admin" for r in (e.roles or []))]
+        admin_emps = [e for e in empleados if (e.usuario and getattr(e.usuario, "is_staff", False)) or any("admin" in (r.nombre or "").lower() for r in (e.roles or []))]
         user_ids_sent = set()
         for emp in admin_emps:
             if not emp.usuario_id:
@@ -426,10 +446,10 @@ def notify_incidente_iniciado(db: Session, incidente_id: str, actor_empleado_id:
 
         data_admin = {"incidente_id": incidente.id, "tipo": tipo, "estado": "en_proceso", "actor_nombre": actor_name or "", "titulo": titulo_admin}
 
-        # Admin Empleados with fcm_token
-        stmt_emp = select(Empleado).where(Empleado.fcm_token.isnot(None))
+        # Admin Empleados (regardless of FCM token)
+        stmt_emp = select(Empleado)
         empleados = db.execute(stmt_emp).scalars().all()
-        admin_emps = [e for e in empleados if (e.usuario and getattr(e.usuario, "is_staff", False)) or any((r.nombre or "").lower() == "admin" for r in (e.roles or []))]
+        admin_emps = [e for e in empleados if (e.usuario and getattr(e.usuario, "is_staff", False)) or any("admin" in (r.nombre or "").lower() for r in (e.roles or []))]
         user_ids_sent = set()
         for emp in admin_emps:
             if not emp.usuario_id:

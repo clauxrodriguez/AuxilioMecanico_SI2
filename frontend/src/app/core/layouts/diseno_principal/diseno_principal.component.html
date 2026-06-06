@@ -11,3 +11,6 @@
 
 <app-toast-container></app-toast-container>
 
+<app-notification-alert *ngIf="activeAlertIncidentId" [incidenteId]="activeAlertIncidentId" (close)="activeAlertIncidentId = null"></app-notification-alert>
+
+

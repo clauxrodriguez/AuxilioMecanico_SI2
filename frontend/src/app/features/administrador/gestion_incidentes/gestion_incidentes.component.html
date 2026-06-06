@@ -176,7 +176,10 @@
           </div>
           <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:flex-end;">
             <button class="btn btn-primary" (click)="acceptIncident(it)">✓ Aceptar Solicitud</button>
-            <button class="btn btn-ghost" (click)="openTracking(it)">Ver ubicación</button>
+            <button class="btn btn-ghost" *ngIf="it.estado !== 'pendiente'" (click)="openTracking(it)">Ver ubicación</button>
+            <button class="btn btn-danger" *ngIf="it.estado === 'aceptada' && it.accepted_empresa_id === auth.currentUser?.empresa_id" (click)="cancelarAceptacion(it)">
+                ✖ Cancelar servicio
+              </button>
           </div>
         </li>
       </ul>
@@ -204,8 +207,11 @@
               <option value="atendido">atendido</option>
             </select>
             <button class="btn" (click)="saveStatus(it)">Guardar</button>
-            <input [(ngModel)]="asignaciones[it.id]" placeholder="empleado_id" />
-            <button class="btn btn-ghost" (click)="assignTecnico(it)">Asignar técnico</button>
+            <!-- Mostrar controles de asignación solo si la solicitud fue aceptada por esta empresa -->
+            <ng-container *ngIf="it.estado === 'aceptada' && it.accepted_empresa_id === auth.currentUser?.empresa_id">
+              <input [(ngModel)]="asignaciones[it.id]" placeholder="empleado_id" />
+              <button class="btn btn-ghost" (click)="assignTecnico(it)">Asignar técnico</button>
+            </ng-container>
             <button class="btn btn-ghost" (click)="openTracking(it)">Ver tracking</button>
             <button class="btn btn-ghost" (click)="addDiagPrompt(it)">Añadir diagnóstico</button>
             <button class="btn btn-ghost" (click)="addEvidPrompt(it)">Añadir evidencia</button>
