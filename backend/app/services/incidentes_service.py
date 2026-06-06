@@ -8,7 +8,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
-from app.db.models import Cliente, Diagnostico, Empleado, Evidencia, Incidente, Vehiculo
+from app.db.models import Cliente, Diagnostico, Empleado, Empresa, Evidencia, Incidente, Vehiculo
 from app.schemas.incidente import IncidenteCreate, IncidenteUpdate, TecnicoCercanoOut, TecnicoUbicacionUpdate
 from app.services.asignacion_service import (
     close_active_asignacion_for_incidente,
@@ -248,10 +248,10 @@ def list_tecnicos_cercanos(
         joinedload(Empleado.usuario),
         joinedload(Empleado.cargo),
         joinedload(Empleado.roles),
-    ).where(
+    ).join(Empleado.empresa).where(
         Empleado.latitud_actual.isnot(None),
         Empleado.longitud_actual.isnot(None),
-    )
+    ).order_by(Empresa.estrellas_promedio.desc())
     if empresa_id:
         stmt = stmt.where(Empleado.empresa_id == empresa_id)
 

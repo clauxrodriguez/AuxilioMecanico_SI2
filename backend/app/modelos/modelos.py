@@ -69,6 +69,8 @@ class Empresa(Base):
     direccion: Mapped[str | None] = mapped_column(String(255), nullable=True)
     telefono: Mapped[str | None] = mapped_column(String(20), nullable=True)
     email: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    estrellas_promedio: Mapped[Decimal] = mapped_column(Numeric(3, 2), nullable=False, default=Decimal("5.00"))
+    total_calificaciones: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     latitud: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
     longitud: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
     fecha_creacion: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

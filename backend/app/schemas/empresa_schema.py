@@ -13,6 +13,8 @@ class EmpresaOut(BaseModel):
     email: Optional[str] = None
     latitud: Optional[float] = None
     longitud: Optional[float] = None
+    estrellas_promedio: float = Field(default=5.0, ge=1.0, le=5.0)
+    total_calificaciones: int = 0
 
     class Config:
         from_attributes = True

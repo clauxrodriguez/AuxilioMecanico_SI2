@@ -37,6 +37,7 @@ from app.services.incidente_service import (
 )
 from app.services.asignacion_service import get_active_asignacion_for_incidente
 from app.services.file_storage import save_incidente_evidence
+from app.services.gamificacion_service import register_sistema_rating_for_empresa
 from app.services.tracking_ws import tracking_ws_manager
 from app.services.cloudinary_service import upload_evidence as cloudinary_upload_evidence
 from app.services.transcription_service import transcribe_audio
@@ -107,6 +108,15 @@ async def incidentes_asignar_tecnico(
 
     actor = resolve_employee(db, user)
     updated = assign_tecnico(db, inc, payload.empleado_id, servicio_id=payload.servicio_id, actor=actor)
+
+    # Regla de aceptación automática: el sistema registra una calificación de 5 estrellas.
+    try:
+        asignacion = get_active_asignacion_for_incidente(db, updated.id)
+        if asignacion:
+            register_sistema_rating_for_empresa(db, asignacion.empresa_id, 5)
+    except Exception:
+        logger.exception("Error actualizando reputación del taller tras aceptación de la solicitud")
+
     tracking = get_incidente_tracking(db, updated)
     await tracking_ws_manager.broadcast(
         updated.id,
@@ -282,6 +292,19 @@ def incidentes_patch_estado(
             pass
     
     db.commit()
+
+    # Regla de cancelación automática: si la solicitud es cancelada después de haberse aceptado,
+    # el sistema penaliza con 1 estrella el promedio del taller.
+    if (payload.estado or '').strip().lower() in {'cancelado', 'cancelada'}:
+        try:
+            asignacion = get_active_asignacion_for_incidente(db, inc.id)
+            if asignacion and asignacion.empresa_id:
+                register_sistema_rating_for_empresa(db, asignacion.empresa_id, 1)
+                asignacion.estado_tarea = 'cancelado'
+                db.add(asignacion)
+                db.commit()
+        except Exception:
+            logger.exception("Error actualizando reputación del taller tras cancelación de la solicitud")
 
     # If the incident was marked as attended, notify admins and client
     try:
