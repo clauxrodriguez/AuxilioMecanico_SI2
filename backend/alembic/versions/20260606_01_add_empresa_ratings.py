@@ -9,7 +9,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = "20260606_01_add_empresa_ratings"
-down_revision = "20260429_01_current_models"
+down_revision = "20260505_01_add_user_fcm_token"
 branch_labels = None
 depends_on = None
 

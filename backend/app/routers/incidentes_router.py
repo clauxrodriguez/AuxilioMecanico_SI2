@@ -109,14 +109,6 @@ async def incidentes_asignar_tecnico(
     actor = resolve_employee(db, user)
     updated = assign_tecnico(db, inc, payload.empleado_id, servicio_id=payload.servicio_id, actor=actor)
 
-    # Regla de aceptación automática: el sistema registra una calificación de 5 estrellas.
-    try:
-        asignacion = get_active_asignacion_for_incidente(db, updated.id)
-        if asignacion:
-            register_sistema_rating_for_empresa(db, asignacion.empresa_id, 5)
-    except Exception:
-        logger.exception("Error actualizando reputación del taller tras aceptación de la solicitud")
-
     tracking = get_incidente_tracking(db, updated)
     await tracking_ws_manager.broadcast(
         updated.id,
@@ -126,6 +118,79 @@ async def incidentes_asignar_tecnico(
         },
     )
     return updated
+
+
+
+@router.post("/{incidente_id}/aceptar-solicitud", response_model=IncidenteOut)
+def incidentes_aceptar_solicitud(incidente_id: str, user=Depends(require_permission("manage_incidentes")), db: Session = Depends(get_db)) -> IncidenteOut:
+    """Taller acepta la solicitud (dentro de 30s desde que apareció)."""
+    try:
+        inc = get_incidente_or_404(db, incidente_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incidente no encontrado")
+
+    actor = resolve_employee(db, user)
+    if not actor:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Empleado (taller) no encontrado")
+
+    # mark as accepted and link empresa
+    inc.estado = 'aceptada'
+    inc.accepted_empresa_id = actor.empresa_id
+    db.add(inc)
+    db.commit()
+    db.refresh(inc)
+
+    # register perfect rating for acceptance
+    try:
+        register_sistema_rating_for_empresa(db, actor.empresa_id, 5)
+    except Exception:
+        logger.exception("Error registrando rating 5 por aceptación")
+
+    return inc
+
+
+@router.post("/{incidente_id}/cancelar-aceptacion", response_model=IncidenteOut)
+def incidentes_cancelar_aceptacion(incidente_id: str, user=Depends(require_permission("manage_incidentes")), db: Session = Depends(get_db)) -> IncidenteOut:
+    """Taller cancela la aceptación antes de asignar técnico."""
+    try:
+        inc = get_incidente_or_404(db, incidente_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incidente no encontrado")
+
+    actor = resolve_employee(db, user)
+    empresa_id = actor.empresa_id if actor else None
+
+    # only allow cancel if accepted by this empresa
+    if inc.accepted_empresa_id and empresa_id and inc.accepted_empresa_id != empresa_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No puedes cancelar una aceptación de otro taller")
+
+    inc.estado = 'pendiente'
+    inc.accepted_empresa_id = None
+    db.add(inc)
+    db.commit()
+    db.refresh(inc)
+
+    # penalize the workshop with 1 star
+    try:
+        if empresa_id:
+            register_sistema_rating_for_empresa(db, empresa_id, 1)
+    except Exception:
+        logger.exception("Error registrando penalización por cancelación")
+
+    return inc
+
+
+@router.post("/{incidente_id}/ignorar", response_model=dict)
+def incidentes_ignorar(incidente_id: str, payload: dict, db: Session = Depends(get_db)) -> dict:
+    """Endpoint llamado por la UI cuando el temporizador expira: payload debe incluir 'empresa_id' para penalizar."""
+    empresa_id = payload.get('empresa_id')
+    if not empresa_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="empresa_id requerido")
+    try:
+        register_sistema_rating_for_empresa(db, empresa_id, 1)
+    except Exception:
+        logger.exception("Error registrando penalización por ignorar alerta")
+    return {"message": "penalizacion_aplicada"}
 
 
 @router.get("/{incidente_id}/", response_model=IncidenteOut)

@@ -80,6 +80,7 @@ class IncidenteOut(ORMModel):
     tipo: str | None
     descripcion: str | None
     estado: str
+    accepted_empresa_id: str | None = None
     prioridad: int | None
     latitud: float | None
     longitud: float | None

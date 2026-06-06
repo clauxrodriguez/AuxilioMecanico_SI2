@@ -30,8 +30,9 @@ def register_sistema_rating_for_empresa(db: Session, empresa_id: str, rating: in
 
     current_average = Decimal(str(empresa.estrellas_promedio or Decimal("5.00")))
     current_total = int(empresa.total_calificaciones or 0)
-
-    empresa.estrellas_promedio = _calculate_moving_average(current_average, current_total, rating)
+    # calculate new average (already quantized to 2 decimals)
+    new_avg = _calculate_moving_average(current_average, current_total, rating)
+    empresa.estrellas_promedio = new_avg
     empresa.total_calificaciones = current_total + 1
 
     db.add(empresa)

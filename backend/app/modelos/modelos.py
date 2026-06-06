@@ -8,6 +8,7 @@ from sqlalchemy import (
     Column,
     Date,
     DateTime,
+    Enum as SAEnum,
     ForeignKey,
     Integer,
     Numeric,
@@ -245,7 +246,9 @@ class Incidente(Base):
 
     tipo: Mapped[str | None] = mapped_column(String(100), nullable=True)
     descripcion: Mapped[str | None] = mapped_column(Text, nullable=True)
-    estado: Mapped[str] = mapped_column(String(50), nullable=False, default="pendiente")
+    # lifecycle states: pendiente, aceptada, asignada, en_proceso, completada
+    estado: Mapped[str] = mapped_column(SAEnum("pendiente","aceptada","asignada","en_proceso","completada", name="incidente_estado"), nullable=False, default="pendiente")
+    accepted_empresa_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("empresa.id", ondelete="SET NULL"), nullable=True)
     prioridad: Mapped[int | None] = mapped_column(Integer, nullable=True)
     latitud: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
     longitud: Mapped[Numeric | None] = mapped_column(Numeric(9, 6), nullable=True)
