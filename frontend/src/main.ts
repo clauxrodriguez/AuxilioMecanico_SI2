@@ -4,8 +4,8 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
 
 import { AppComponent } from './app/app.component';
-import { appRoutes } from './app/app.routes';
-import { authInterceptor } from './app/interceptors/auth/auth.interceptor';
+import { appRoutes } from './app/rutas_aplicacion';
+import { authInterceptor } from './app/core/interceptores/autenticacion.interceptor';
 
 bootstrapApplication(AppComponent, {
   providers: [

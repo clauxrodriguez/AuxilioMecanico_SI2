@@ -1,0 +1,14 @@
+<header class="card topbar">
+  <div>
+    <strong>{{ auth.isClient ? 'Portal de cliente' : 'Panel de gestion' }}</strong>
+    <p class="muted">
+      {{ auth.isClient ? 'Gestiona tu perfil, vehiculos e incidentes' : 'Administracion de usuarios, roles y permisos' }}
+    </p>
+  </div>
+
+  <div class="user" *ngIf="auth.currentUser as user">
+    <span>{{ user.nombre_completo }}</span>
+    <span class="badge">{{ user.username }}</span>
+  </div>
+</header>
+

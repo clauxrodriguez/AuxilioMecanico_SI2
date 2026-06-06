@@ -1,7 +1,7 @@
 """Add fcm_token column to cliente and empleado tables
 
 Revision ID: 20260429_01_add_fcm
-Revises: 20260428_01_create_pago
+Revises: 20260429_01_current_models
 Create Date: 2026-04-29
 """
 

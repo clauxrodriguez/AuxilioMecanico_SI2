@@ -3,7 +3,7 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "frontendnew": {
+    "frontend": {
       "projectType": "application",
       "root": "",
       "sourceRoot": "src",
@@ -12,7 +12,7 @@
         "build": {
           "builder": "@angular-devkit/build-angular:application",
           "options": {
-            "outputPath": "dist/frontendnew",
+            "outputPath": "dist/frontend",
             "index": "src/index.html",
             "browser": "src/main.ts",
             "polyfills": [
@@ -57,10 +57,10 @@
           },
           "configurations": {
             "production": {
-              "buildTarget": "frontendnew:build:production"
+              "buildTarget": "frontend:build:production"
             },
             "development": {
-              "buildTarget": "frontendnew:build:development"
+              "buildTarget": "frontend:build:development"
             }
           },
           "defaultConfiguration": "development"
