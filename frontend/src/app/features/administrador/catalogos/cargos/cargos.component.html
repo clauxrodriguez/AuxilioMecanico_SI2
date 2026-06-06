@@ -31,7 +31,7 @@
     </div>
   </form>
 
-  <table class="table" *ngIf="!isCreateView">
+  <table class="table" *ngIf="!isCreateView && cargos.length > 0">
     <thead>
       <tr>
         <th>Nombre</th>
@@ -50,5 +50,9 @@
       </tr>
     </tbody>
   </table>
+
+  <div *ngIf="!isCreateView && cargos.length === 0" style="padding: 2rem; text-align: center; color: var(--muted);">
+    No hay cargos registrados.
+  </div>
 </section>
 

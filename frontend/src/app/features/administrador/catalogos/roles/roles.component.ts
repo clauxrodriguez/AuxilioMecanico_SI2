@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
@@ -32,6 +32,7 @@ export class RolComponent implements OnInit {
     private readonly auth: AuthService,
     private readonly fb: FormBuilder,
     private readonly route: ActivatedRoute,
+    private readonly cdr: ChangeDetectorRef,
   ) {}
 
   get canManage(): boolean {
@@ -44,6 +45,7 @@ export class RolComponent implements OnInit {
       if (this.isCreateView) {
         this.resetForm();
       }
+      this.cdr.detectChanges();
     });
     this.fetchAll();
   }
@@ -52,18 +54,23 @@ export class RolComponent implements OnInit {
     this.api.getRoles().subscribe({
       next: (roles) => {
         this.roles = roles;
+        console.log('ROLES:', this.roles);
+        this.cdr.detectChanges();
       },
       error: (error) => {
         this.errorMsg = error?.error?.detail || 'No se pudo cargar roles.';
+        this.cdr.detectChanges();
       },
     });
 
     this.api.getPermisos().subscribe({
       next: (permisos) => {
         this.permisosCatalogo = permisos;
+        this.cdr.detectChanges();
       },
       error: (error) => {
         this.errorMsg = error?.error?.detail || 'No se pudo cargar permisos del catalogo.';
+        this.cdr.detectChanges();
       },
     });
   }

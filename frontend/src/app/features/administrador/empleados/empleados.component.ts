@@ -19,7 +19,6 @@ export class EmpleadoComponent implements OnInit {
   isCreateView = false;
   cargosCatalogo: Cargo[] = [];
   rolesCatalogo: Rol[] = [];
-  selectedRoleIds = new Set<string>();
   selectedFile: File | null = null;
 
   loading = false;
@@ -33,7 +32,8 @@ export class EmpleadoComponent implements OnInit {
     direccion: [''],
     telefono: [''],
     sueldo: [0, Validators.required],
-    cargo: [''],
+    cargo: ['', Validators.required],
+    rol: ['', Validators.required],
   });
 
   constructor(
@@ -69,7 +69,10 @@ export class EmpleadoComponent implements OnInit {
 
     this.api.getRoles().subscribe({
       next: (rows) => {
-        this.rolesCatalogo = rows;
+        this.rolesCatalogo = rows.filter(r => {
+          const lower = r.nombre.toLowerCase();
+          return lower === 'gerente' || lower === 'tecnico' || lower === 'técnico';
+        });
       },
       error: () => undefined,
     });
@@ -87,14 +90,7 @@ export class EmpleadoComponent implements OnInit {
     this.selectedFile = input.files?.[0] || null;
   }
 
-  toggleRole(roleId: string, event: Event): void {
-    const checked = (event.target as HTMLInputElement).checked;
-    if (checked) {
-      this.selectedRoleIds.add(roleId);
-    } else {
-      this.selectedRoleIds.delete(roleId);
-    }
-  }
+
 
   edit(emp: Empleado): void {
     this.editingId = emp.id;
@@ -106,9 +102,17 @@ export class EmpleadoComponent implements OnInit {
       telefono: emp.telefono || '',
       sueldo: emp.sueldo,
       cargo: emp.cargo || '',
+      rol: '',
     });
 
-    this.selectedRoleIds = new Set(emp.roles || emp.roles_asignados.map((r) => r.id));
+    const assignedRoles = emp.roles_asignados || [];
+    const mainRole = assignedRoles.find(r => {
+      const lower = r.nombre.toLowerCase();
+      return lower === 'gerente' || lower === 'tecnico' || lower === 'técnico';
+    });
+    if (mainRole) {
+      this.form.patchValue({ rol: mainRole.id });
+    }
   }
 
   openEdit(emp: Empleado): void {
@@ -118,7 +122,6 @@ export class EmpleadoComponent implements OnInit {
 
   resetForm(): void {
     this.editingId = null;
-    this.selectedRoleIds = new Set<string>();
     this.selectedFile = null;
     this.form.reset({
       nombre_completo: '',
@@ -128,6 +131,7 @@ export class EmpleadoComponent implements OnInit {
       telefono: '',
       sueldo: 0,
       cargo: '',
+      rol: '',
     });
   }
 
@@ -157,7 +161,9 @@ export class EmpleadoComponent implements OnInit {
 
     console.log('FormData entries:', logFormData(data));
 
-    Array.from(this.selectedRoleIds).forEach((roleId) => data.append('roles', roleId));
+    if (raw.rol) {
+      data.append('roles', raw.rol);
+    }
 
     console.log('With roles:', logFormData(data));
 

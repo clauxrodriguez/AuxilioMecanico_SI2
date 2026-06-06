@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
@@ -31,6 +31,7 @@ export class CargoComponent implements OnInit {
     private readonly auth: AuthService,
     private readonly fb: FormBuilder,
     private readonly route: ActivatedRoute,
+    private readonly cdr: ChangeDetectorRef,
   ) {}
 
   get canManage(): boolean {
@@ -43,6 +44,7 @@ export class CargoComponent implements OnInit {
       if (this.isCreateView) {
         this.resetForm();
       }
+      this.cdr.detectChanges();
     });
     this.fetchCargos();
   }
@@ -51,9 +53,12 @@ export class CargoComponent implements OnInit {
     this.api.getCargos().subscribe({
       next: (rows) => {
         this.cargos = rows;
+        console.log('CARGOS:', this.cargos);
+        this.cdr.detectChanges();
       },
       error: (error) => {
         this.errorMsg = error?.error?.detail || 'No se pudo cargar cargos.';
+        this.cdr.detectChanges();
       },
     });
   }
