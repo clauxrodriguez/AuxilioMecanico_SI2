@@ -83,11 +83,11 @@ export class AuthService {
   }
 
   registerCompany(payload: RegisterCompanyRequest): Observable<RegisterCompanyResponse> {
-    return this.http.post<RegisterCompanyResponse>(`${environment.apiBaseUrl}/register/company/`, payload);
+    return this.http.post<RegisterCompanyResponse>(`${environment.apiBaseUrl}/api/auth/register/company/`, payload);
   }
 
   registerAdmin(payload: RegisterAdminRequest): Observable<TokenResponse> {
-    return this.http.post<TokenResponse>(`${environment.apiBaseUrl}/register/admin/`, payload).pipe(
+    return this.http.post<TokenResponse>(`${environment.apiBaseUrl}/api/auth/register/admin/`, payload).pipe(
       tap((tokens) => this.applyTokens(tokens)),
       switchMap((tokens) =>
         this.loadMyPermissions().pipe(

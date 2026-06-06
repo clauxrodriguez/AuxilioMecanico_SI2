@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Empresa, User
 from app.db.session import get_db
-from app.deps.auth import get_current_user, require_permission, resolve_tenant_empresa_id
+from app.deps.auth import get_current_user, require_permission, get_current_tenant_empresa_id, require_empresa_context
 from app.schemas.servicio import ServicioCreate, ServicioOut, ServicioUpdate
 from app.services.permission_service import resolve_employee
 from app.services.user_management import (
@@ -20,8 +20,7 @@ router = APIRouter(prefix="/servicios", tags=["servicios"])
 
 
 def _resolve_target_empresa_id(db: Session, user: User) -> str:
-    empleado = resolve_employee(db, user)
-    empresa_id = resolve_tenant_empresa_id(user, empleado)
+    empresa_id = get_current_tenant_empresa_id(db, user)
     if empresa_id:
         return empresa_id
 
@@ -33,11 +32,10 @@ def _resolve_target_empresa_id(db: Session, user: User) -> str:
 
 @router.get("/", response_model=list[ServicioOut])
 def servicios_list(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_empresa_context),
     db: Session = Depends(get_db),
 ) -> list[ServicioOut]:
-    empleado = resolve_employee(db, user)
-    empresa_id = resolve_tenant_empresa_id(user, empleado)
+    empresa_id = get_current_tenant_empresa_id(db, user)
     rows = list_servicios(db, empresa_id)
     return [_serialize_servicio(row) for row in rows]
 
@@ -45,11 +43,10 @@ def servicios_list(
 @router.get("/{servicio_id}/", response_model=ServicioOut)
 def servicios_retrieve(
     servicio_id: str,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_empresa_context),
     db: Session = Depends(get_db),
 ) -> ServicioOut:
-    empleado = resolve_employee(db, user)
-    empresa_id = resolve_tenant_empresa_id(user, empleado)
+    empresa_id = get_current_tenant_empresa_id(db, user)
     servicio = get_servicio_or_404(db, servicio_id, empresa_id)
     return _serialize_servicio(servicio)
 
@@ -79,8 +76,7 @@ def servicios_update(
     user: User = Depends(require_permission("manage_servicio")),
     db: Session = Depends(get_db),
 ) -> ServicioOut:
-    empleado = resolve_employee(db, user)
-    empresa_id = resolve_tenant_empresa_id(user, empleado)
+    empresa_id = get_current_tenant_empresa_id(db, user)
     servicio = get_servicio_or_404(db, servicio_id, empresa_id)
     servicio = update_servicio(
         db,
@@ -98,8 +94,7 @@ def servicios_delete(
     user: User = Depends(require_permission("manage_servicio")),
     db: Session = Depends(get_db),
 ) -> Response:
-    empleado = resolve_employee(db, user)
-    empresa_id = resolve_tenant_empresa_id(user, empleado)
+    empresa_id = get_current_tenant_empresa_id(db, user)
     servicio = get_servicio_or_404(db, servicio_id, empresa_id)
     delete_servicio(db, servicio)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

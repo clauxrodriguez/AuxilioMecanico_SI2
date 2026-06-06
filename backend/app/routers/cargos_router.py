@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Empresa, User
 from app.db.session import get_db
-from app.deps.auth import get_current_user, require_permission, resolve_tenant_empresa_id
+from app.deps.auth import get_current_user, require_permission, get_current_tenant_empresa_id, require_empresa_context
 from app.schemas.cargo import CargoCreate, CargoOut, CargoUpdate
 from app.services.permission_service import resolve_employee
 from app.services.user_management import (
@@ -20,8 +20,7 @@ router = APIRouter(prefix="/cargos", tags=["cargos"])
 
 
 def _resolve_target_empresa_id(db: Session, user: User) -> str:
-    empleado = resolve_employee(db, user)
-    empresa_id = resolve_tenant_empresa_id(user, empleado)
+    empresa_id = get_current_tenant_empresa_id(db, user)
     if empresa_id:
         return empresa_id
 
@@ -33,11 +32,10 @@ def _resolve_target_empresa_id(db: Session, user: User) -> str:
 
 @router.get("/", response_model=list[CargoOut])
 def cargos_list(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_empresa_context),
     db: Session = Depends(get_db),
 ) -> list[CargoOut]:
-    empleado = resolve_employee(db, user)
-    empresa_id = resolve_tenant_empresa_id(user, empleado)
+    empresa_id = get_current_tenant_empresa_id(db, user)
     rows = list_cargos(db, empresa_id)
     return [_serialize_cargo(row) for row in rows]
 
@@ -45,11 +43,10 @@ def cargos_list(
 @router.get("/{cargo_id}/", response_model=CargoOut)
 def cargos_retrieve(
     cargo_id: str,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_empresa_context),
     db: Session = Depends(get_db),
 ) -> CargoOut:
-    empleado = resolve_employee(db, user)
-    empresa_id = resolve_tenant_empresa_id(user, empleado)
+    empresa_id = get_current_tenant_empresa_id(db, user)
     cargo = get_cargo_or_404(db, cargo_id, empresa_id)
     return _serialize_cargo(cargo)
 
@@ -73,8 +70,7 @@ def cargos_update(
     user: User = Depends(require_permission("manage_cargo")),
     db: Session = Depends(get_db),
 ) -> CargoOut:
-    empleado = resolve_employee(db, user)
-    empresa_id = resolve_tenant_empresa_id(user, empleado)
+    empresa_id = get_current_tenant_empresa_id(db, user)
     cargo = get_cargo_or_404(db, cargo_id, empresa_id)
     cargo = update_cargo(db, cargo, nombre=payload.nombre, descripcion=payload.descripcion)
     return _serialize_cargo(cargo)
@@ -86,8 +82,7 @@ def cargos_delete(
     user: User = Depends(require_permission("manage_cargo")),
     db: Session = Depends(get_db),
 ) -> Response:
-    empleado = resolve_employee(db, user)
-    empresa_id = resolve_tenant_empresa_id(user, empleado)
+    empresa_id = get_current_tenant_empresa_id(db, user)
     cargo = get_cargo_or_404(db, cargo_id, empresa_id)
     delete_cargo(db, cargo)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

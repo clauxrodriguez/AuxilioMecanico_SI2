@@ -64,16 +64,43 @@ def require_permission(permission_name: str) -> Callable:
     return _dependency
 
 
-def resolve_tenant_empresa_id(user: User, empleado: Empleado | None) -> str | None:
-    # Staff users that are also attached to an employee record should stay
-    # scoped to their company. Only truly global staff fall back to None.
-    if user.is_staff and empleado:
-        return empleado.empresa_id
-    if user.is_staff:
+def get_current_tenant_empresa_id(db: Session, user: User) -> str | None:
+    if user.is_staff or user.is_superuser:
         return None
-    if not empleado:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El usuario no está asociado a un taller")
-    return empleado.empresa_id
+
+    empleado = resolve_employee(db, user)
+    if empleado:
+        return empleado.empresa_id
+
+    # Check si es cliente
+    from app.services.cliente_service import get_cliente_for_user
+    cliente = get_cliente_for_user(db, user.id)
+    if cliente:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Acceso denegado: El cliente no tiene contexto de empresa"
+        )
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN, 
+        detail="Acceso denegado: Usuario no asociado a empresa ni cliente"
+    )
+
+def require_empresa_context(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> User:
+    if user.is_staff or user.is_superuser:
+        return user
+        
+    empleado = resolve_employee(db, user)
+    if empleado:
+        return user
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Acceso denegado: Endpoint exclusivo para personal de la empresa."
+    )
 
 
 def get_base_url(request: Request) -> str:

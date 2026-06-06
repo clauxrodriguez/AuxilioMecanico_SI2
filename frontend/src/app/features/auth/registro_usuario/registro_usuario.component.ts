@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { ChangeDetectorRef, Component } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 
@@ -44,6 +44,7 @@ export class RegisterComponent {
     private readonly fb: FormBuilder,
     private readonly auth: AuthService,
     private readonly router: Router,
+    private readonly cdr: ChangeDetectorRef,
   ) {}
 
   goToStepTwo(): void {
@@ -78,13 +79,17 @@ export class RegisterComponent {
       card_cvc: payment.card_cvc,
     }).subscribe({
       next: (result) => {
+        console.log('REGISTRATION SUCCESS', result);
         this.loading = false;
         this.registrationToken = result.registration_token;
         this.step = 2;
+        this.cdr.detectChanges();
       },
       error: (error) => {
+        console.error('REGISTRATION ERROR', error);
         this.loading = false;
         this.errorMsg = error?.error?.detail || 'No se pudo registrar la empresa.';
+        this.cdr.detectChanges();
       },
     });
   }

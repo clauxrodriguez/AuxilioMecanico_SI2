@@ -29,8 +29,47 @@ def _distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return 2 * radius_km * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
-def list_incidentes(db: Session) -> list[Incidente]:
-    return db.execute(select(Incidente).order_by(Incidente.creado_en.desc())).scalars().all()
+def list_incidentes(db: Session, user=None) -> list[Incidente]:
+    stmt = select(Incidente).order_by(Incidente.creado_en.desc())
+    
+    if not user:
+        return db.execute(stmt).scalars().all()
+        
+    if user.is_staff or user.is_superuser:
+        return db.execute(stmt).scalars().all()
+
+    from app.services.permission_service import resolve_employee, has_named_permission
+    from app.services.cliente_service import get_cliente_for_user
+    from app.db.models import AsignacionServicio
+
+    empleado = resolve_employee(db, user)
+    if empleado:
+        is_manager = has_named_permission(db, user, "manage_incidentes")
+        if is_manager:
+            # ADMIN / GERENTE: ve pendientes y los asignados a su empresa
+            stmt = stmt.outerjoin(
+                AsignacionServicio, 
+                AsignacionServicio.incidente_id == Incidente.id
+            ).where(
+                (Incidente.estado == "pendiente") | 
+                (AsignacionServicio.empresa_id == empleado.empresa_id)
+            )
+        else:
+            # TECNICO: ve solo los asignados a él
+            stmt = stmt.join(
+                AsignacionServicio, 
+                (AsignacionServicio.incidente_id == Incidente.id)
+            ).where(AsignacionServicio.empleado_id == empleado.id)
+            
+        return db.execute(stmt).unique().scalars().all()
+
+    # Si es cliente, solo los suyos
+    cliente = get_cliente_for_user(db, user.id)
+    if cliente:
+        stmt = stmt.where(Incidente.cliente_id == cliente.id)
+        return db.execute(stmt).scalars().all()
+
+    return []
 
 
 def create_incidente(db: Session, payload: IncidenteCreate, cliente_id: str | None = None) -> Incidente:

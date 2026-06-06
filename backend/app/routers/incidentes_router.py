@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.db.session import get_db
-from app.deps.auth import get_current_employee, get_current_user, require_permission
+from app.deps.auth import get_current_employee, get_current_user, require_permission, get_current_tenant_empresa_id, require_empresa_context
 from app.schemas.incidente import (
     AsignarTecnicoRequest,
     IncidenteCreate,
@@ -54,9 +54,9 @@ settings = get_settings()
 # ============================================================
 
 @router.get("/", response_model=list[IncidenteOut])
-def incidentes_list(db: Session = Depends(get_db)) -> list[IncidenteOut]:
+def incidentes_list(user=Depends(get_current_user), db: Session = Depends(get_db)) -> list[IncidenteOut]:
     """Listar todos los incidentes (requiere autenticación)"""
-    return list_incidentes(db)
+    return list_incidentes(db, user=user)
 
 
 #@router.get("/tecnicos/cercanos", response_model=list[TecnicoCercanoOut])
@@ -76,12 +76,11 @@ def tecnicos_disponibles(
     # Cambiamos los parámetros a opcionales (None) para que no bloqueen la petición
     latitud: float | None = Query(None, ge=-90, le=90),
     longitud: float | None = Query(None, ge=-180, le=180),
-    user=Depends(get_current_user),
+    user=Depends(require_empresa_context),
     db: Session = Depends(get_db),
 ) -> list[TecnicoCercanoOut]:
-    # Para pruebas de asignación mostramos todos los empleados libres no administrativos.
-    # Esto evita que una empresa sin técnicos libres quede con una lista vacía.
-    return list_tecnicos_disponibles(db, empresa_id=None)
+    empresa_id = get_current_tenant_empresa_id(db, user)
+    return list_tecnicos_disponibles(db, empresa_id=empresa_id)
 
 @router.post("/", response_model=IncidenteOut, status_code=status.HTTP_201_CREATED)
 def incidentes_create(payload: IncidenteCreate, user=Depends(get_current_user), db: Session = Depends(get_db)) -> IncidenteOut:
@@ -121,6 +120,7 @@ async def incidentes_asignar_tecnico(
 @router.get("/{incidente_id}/", response_model=IncidenteOut)
 def incidentes_retrieve(
     incidente_id: str,
+    user=Depends(require_empresa_context),
     db: Session = Depends(get_db)
 ) -> IncidenteOut:
     """Obtener detalle de un incidente"""
@@ -326,6 +326,7 @@ def incidentes_add_diagnostico(
 @router.get("/{incidente_id}/diagnosticos", response_model=list)
 def incidentes_get_diagnosticos(
     incidente_id: str,
+    user=Depends(require_empresa_context),
     db: Session = Depends(get_db)
 ) -> list:
     """Obtener diagnóstico(s) de un incidente"""

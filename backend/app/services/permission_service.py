@@ -3,20 +3,24 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.db.models import Empleado, Rol, Suscripcion, User
 
-ADMIN_ROLE_ALIASES = {"admin", "administrador"}
-ADMIN_BASE_PERMISSIONS = {
-    "manage_cargo",
-    "manage_clientes",
-    "manage_incidentes",
-    "manage_empleado",
-    "manage_rol",
-    "manage_permiso",
-    "view_cargo",
-    "view_clientes",
-    "view_incidentes",
-    "view_empleado",
-    "view_rol",
-    "view_permiso",
+ROLE_PERMISSIONS = {
+    "ADMIN": {
+        "manage_cargo", "manage_clientes", "manage_incidentes",
+        "manage_empleado", "manage_rol", "manage_permiso",
+        "manage_servicio", "manage_pagos", "view_cargo",
+        "view_clientes", "view_incidentes", "view_empleado",
+        "view_rol", "view_permiso", "view_servicio", "view_pagos",
+        "view_reportes"
+    },
+    "GERENTE": {
+        "manage_incidentes", "manage_empleado", "manage_servicio", "manage_pagos",
+        "view_clientes", "view_incidentes", "view_empleado",
+        "view_servicio", "view_pagos", "view_reportes"
+    },
+    "TECNICO": {
+        "view_incidentes", "manage_incidentes_asignados"
+    },
+    "CLIENTE": set()
 }
 
 
@@ -35,8 +39,13 @@ def get_user_permissions(db: Session, user: User) -> set[str]:
     empleado = resolve_employee(db, user)
     if empleado:
         for role in empleado.roles:
-            if (role.nombre or "").strip().lower() in ADMIN_ROLE_ALIASES:
-                permissions.update(ADMIN_BASE_PERMISSIONS)
+            role_name = (role.nombre or "").strip().upper()
+            if role_name == "ADMINISTRADOR":
+                role_name = "ADMIN"
+                
+            if role_name in ROLE_PERMISSIONS:
+                permissions.update(ROLE_PERMISSIONS[role_name])
+                
             for perm in role.permisos:
                 permissions.add(perm.nombre)
 
@@ -50,6 +59,7 @@ def get_user_permissions(db: Session, user: User) -> set[str]:
 
     if user.is_staff:
         permissions.add("is_superuser")
+        permissions.update(ROLE_PERMISSIONS["ADMIN"])
 
     return permissions
 

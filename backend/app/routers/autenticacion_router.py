@@ -77,8 +77,8 @@ def me_legacy(
 ) -> dict:
     empleado = resolve_employee(db, user)
     cliente = get_cliente_for_user(db, user.id)
-    role_names = {(role.nombre or "").strip().lower() for role in (empleado.roles if empleado else [])}
-    is_admin_role = "admin" in role_names or "administrador" in role_names
+    role_names = {(role.nombre or "").strip().upper() for role in (empleado.roles if empleado else [])}
+    is_admin_role = "ADMIN" in role_names or "ADMINISTRADOR" in role_names
 
     return {
         "id": user.id,
