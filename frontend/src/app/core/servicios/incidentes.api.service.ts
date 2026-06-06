@@ -133,6 +133,10 @@ export class IncidenteApiService {
     return this.http.post<IncidenteDto>(`${this.base}/incidentes/${id}/asignacion`, payload);
   }
 
+  acceptIncident(id: string) {
+    return this.http.post<IncidenteDto>(`${this.base}/incidentes/${id}/aceptar-solicitud`, {});
+  }
+
   updateMiUbicacion(payload: TecnicoUbicacionRequest) {
     return this.http.patch(`${this.base}/incidentes/tecnicos/mi-ubicacion`, payload);
   }

@@ -507,6 +507,27 @@ export class IncidentesComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  acceptIncident(it: IncidenteDto) {
+    this.api.acceptIncident(it.id).subscribe({
+      next: () => {
+        this.message = 'Solicitud aceptada';
+        this.load();
+      },
+      error: (err) => {
+        console.error('Error aceptando incidente:', err);
+        this.message = 'No se pudo aceptar la solicitud';
+      },
+    });
+  }
+
+  get pendingIncidents(): IncidenteDto[] {
+    return this.incidents.filter(it => it.estado === 'pendiente');
+  }
+
+  get otherIncidents(): IncidenteDto[] {
+    return this.incidents.filter(it => it.estado !== 'pendiente');
+  }
+
   openTracking(it: IncidenteDto) {
     this.api.getTracking(it.id).subscribe({
       next: (tracking) => {

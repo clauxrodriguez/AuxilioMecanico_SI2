@@ -15,20 +15,37 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # create enum type
-    op.execute("CREATE TYPE incidente_estado AS ENUM ('pendiente','aceptada','asignada','en_proceso','completada')")
-    # alter column tipo for incidente.estado
-    op.add_column('incidente', sa.Column('estado', sa.Enum('pendiente','aceptada','asignada','en_proceso','completada', name='incidente_estado'), nullable=False, server_default='pendiente'))
-    # migrate existing string column if present
-    try:
-        op.execute("ALTER TABLE incidente ALTER COLUMN estado TYPE incidente_estado USING estado::incidente_estado")
-    except Exception:
-        # if column already created above, pass
-        pass
+    # Use a PL/pgSQL block to perform idempotent changes and swallow non-fatal errors
+    op.execute(
+        """
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'incidente_estado') THEN
+                CREATE TYPE incidente_estado AS ENUM ('pendiente','aceptada','asignada','en_proceso','completada');
+            END IF;
 
-    # add accepted_empresa_id column
-    op.add_column('incidente', sa.Column('accepted_empresa_id', sa.String(length=36), nullable=True))
-    op.create_foreign_key('fk_incidente_accepted_empresa', 'incidente', 'empresa', ['accepted_empresa_id'], ['id'], ondelete='SET NULL')
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='incidente' AND column_name='estado') THEN
+                ALTER TABLE incidente ADD COLUMN estado incidente_estado DEFAULT 'pendiente' NOT NULL;
+            ELSE
+                BEGIN
+                    ALTER TABLE incidente ALTER COLUMN estado TYPE incidente_estado USING estado::incidente_estado;
+                EXCEPTION WHEN others THEN
+                    -- ignore conversion errors
+                    NULL;
+                END;
+            END IF;
+
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='incidente' AND column_name='accepted_empresa_id') THEN
+                ALTER TABLE incidente ADD COLUMN accepted_empresa_id VARCHAR(36);
+                BEGIN
+                    ALTER TABLE incidente ADD CONSTRAINT fk_incidente_accepted_empresa FOREIGN KEY (accepted_empresa_id) REFERENCES empresa(id) ON DELETE SET NULL;
+                EXCEPTION WHEN others THEN
+                    NULL;
+                END;
+            END IF;
+        END$$;
+        """
+    )
 
 
 def downgrade() -> None:

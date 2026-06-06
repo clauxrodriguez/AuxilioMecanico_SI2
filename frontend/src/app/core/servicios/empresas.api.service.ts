@@ -12,6 +12,8 @@ export interface EmpresaDto {
   email?: string | null;
   latitud?: number | null;
   longitud?: number | null;
+  estrellas_promedio?: number;
+  total_calificaciones?: number;
 }
 
 @Injectable({ providedIn: 'root' })

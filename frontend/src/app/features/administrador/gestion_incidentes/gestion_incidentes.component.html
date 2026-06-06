@@ -162,30 +162,57 @@
     <h4>Incidentes</h4>
     <div *ngIf="loading" class="muted">Cargando incidentes...</div>
     <div *ngIf="!loading && incidents.length === 0" class="muted">No hay incidentes.</div>
-    <ul *ngIf="incidents.length > 0">
-      <li *ngFor="let it of incidents" style="margin:0.5rem 0; display:flex; justify-content:space-between; align-items:center">
-        <div>
-          <strong>{{ it.tipo || 'Incidente' }}</strong>
-          <div class="muted">{{ it.descripcion }}</div>
-          <div class="muted">Estado: {{ it.estado }} • Prioridad: {{ it.prioridad || 'N/A' }}</div>
-          <div class="muted">Destino: {{ it.latitud ?? 'N/A' }}, {{ it.longitud ?? 'N/A' }}</div>
-          <div class="muted">Técnico asignado: Ver asignación</div>
-        </div>
-        <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
-          <select [(ngModel)]="it.estado">
-            <option value="pendiente">pendiente</option>
-            <option value="en_proceso">en_proceso</option>
-            <option value="atendido">atendido</option>
-          </select>
-          <button class="btn" (click)="saveStatus(it)">Guardar</button>
-          <input [(ngModel)]="asignaciones[it.id]" placeholder="empleado_id" />
-          <button class="btn btn-ghost" (click)="assignTecnico(it)">Asignar técnico</button>
-          <button class="btn btn-ghost" (click)="openTracking(it)">Ver tracking</button>
-          <button class="btn btn-ghost" (click)="addDiagPrompt(it)">Añadir diagnóstico</button>
-          <button class="btn btn-ghost" (click)="addEvidPrompt(it)">Añadir evidencia</button>
-        </div>
-      </li>
-    </ul>
+
+    <!-- Pending requests needing acceptance (highlighted) -->
+    <div *ngIf="!loading && pendingIncidents.length > 0">
+      <h5 style="color: var(--brand); margin: 1rem 0 0.5rem 0;">📢 Nuevas solicitudes esperando aceptación</h5>
+      <ul>
+        <li *ngFor="let it of pendingIncidents" 
+            style="margin:0.75rem 0; padding:1rem; border-left: 4px solid var(--brand); background-color: rgba(var(--brand-rgb), 0.05); display:flex; justify-content:space-between; align-items:flex-start; gap:1rem;">
+          <div style="flex:1;">
+            <strong style="font-size:1.05rem;">{{ it.tipo || 'Incidente' }}</strong>
+            <div class="muted" style="margin-top:0.25rem;">{{ it.descripcion }}</div>
+            <div class="muted tiny" style="margin-top:0.25rem;">Prioridad: {{ it.prioridad || 'N/A' }} • Ubicación: {{ it.latitud | number:'1.0-4' }}, {{ it.longitud | number:'1.0-4' }}</div>
+          </div>
+          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:flex-end;">
+            <button class="btn btn-primary" (click)="acceptIncident(it)">✓ Aceptar Solicitud</button>
+            <button class="btn btn-ghost" (click)="openTracking(it)">Ver ubicación</button>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Other incidents -->
+    <div *ngIf="!loading && otherIncidents.length > 0">
+      <h5 style="margin: 1.5rem 0 0.5rem 0;">Otras solicitudes</h5>
+      <ul>
+        <li *ngFor="let it of otherIncidents" style="margin:0.5rem 0; display:flex; justify-content:space-between; align-items:center">
+          <div>
+            <strong>{{ it.tipo || 'Incidente' }}</strong>
+            <div class="muted">{{ it.descripcion }}</div>
+            <div class="muted">Estado: {{ it.estado }} • Prioridad: {{ it.prioridad || 'N/A' }}</div>
+            <div class="muted">Destino: {{ it.latitud ?? 'N/A' }}, {{ it.longitud ?? 'N/A' }}</div>
+            <div class="muted">Técnico asignado: Ver asignación</div>
+          </div>
+          <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+            <select [(ngModel)]="it.estado">
+              <option value="pendiente">pendiente</option>
+              <option value="aceptada">aceptada</option>
+              <option value="asignada">asignada</option>
+              <option value="en_proceso">en_proceso</option>
+              <option value="completada">completada</option>
+              <option value="atendido">atendido</option>
+            </select>
+            <button class="btn" (click)="saveStatus(it)">Guardar</button>
+            <input [(ngModel)]="asignaciones[it.id]" placeholder="empleado_id" />
+            <button class="btn btn-ghost" (click)="assignTecnico(it)">Asignar técnico</button>
+            <button class="btn btn-ghost" (click)="openTracking(it)">Ver tracking</button>
+            <button class="btn btn-ghost" (click)="addDiagPrompt(it)">Añadir diagnóstico</button>
+            <button class="btn btn-ghost" (click)="addEvidPrompt(it)">Añadir evidencia</button>
+          </div>
+        </li>
+      </ul>
+    </div>
   </section>
 
   <div *ngIf="message" class="muted" style="margin-top:1rem;">{{ message }}</div>

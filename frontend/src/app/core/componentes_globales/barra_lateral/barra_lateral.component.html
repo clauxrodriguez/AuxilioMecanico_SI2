@@ -6,6 +6,17 @@
     <span class="badge">{{ auth.isClient ? 'Cliente' : (user.empresa_nombre || 'Sin empresa') }}</span>
   </p>
 
+  <!-- Show reputation stars only for admin (non-client) -->
+  <div *ngIf="!auth.isClient && empresa && auth.isAdmin" class="reputation-section">
+    <div class="stars">
+      <span *ngFor="let star of getStarArray(empresa.estrellas_promedio)" 
+            class="star" 
+            [class.filled]="star === 1">★</span>
+    </div>
+    <p class="reputation-text">{{ empresa.estrellas_promedio | number:'1.0-2' }} / 5.0</p>
+    <p class="reputation-count">({{ empresa.total_calificaciones || 0 }} calificaciones)</p>
+  </div>
+
   <nav *ngIf="auth.isAdmin && hasAdminPermission">
     <a routerLink="/app/admin/perfil" routerLinkActive="active">Mi perfil</a>
     <a routerLink="/app/admin/notificaciones" routerLinkActive="active">Notificaciones</a>
