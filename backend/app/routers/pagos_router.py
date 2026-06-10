@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from decimal import Decimal
 
 from app.db.session import get_db
-from app.deps.auth import get_current_user, resolve_tenant_empresa_id
+from app.deps.auth import get_current_user, get_current_tenant_empresa_id, require_empresa_context
 from app.services.permission_service import resolve_employee
 from app.services.pago_service import (
     create_pago,
@@ -30,7 +30,7 @@ def crear_pago_asignacion(asignacion_id: str, payload: PagoCreate, user=Depends(
 def pagos_list(user=Depends(get_current_user), db: Session = Depends(get_db)):
     empleado = resolve_employee(db, user)
     if empleado:
-        empresa_id = resolve_tenant_empresa_id(user, empleado)
+        empresa_id = get_current_tenant_empresa_id(db, user)
         rows = list_pagos(db, empresa_id=empresa_id)
         return rows
 
@@ -53,14 +53,14 @@ def pagos_retrieve(pago_id: str, user=Depends(get_current_user), db: Session = D
 
 
 @router.patch("/api/pagos/{pago_id}/confirmar", response_model=PagoOut)
-def pagos_confirmar(pago_id: str, user=Depends(get_current_user), db: Session = Depends(get_db)):
+def pagos_confirmar(pago_id: str, user=Depends(require_empresa_context), db: Session = Depends(get_db)):
     pago = get_pago_or_404(db, pago_id)
     pago = confirmar_pago(db, pago)
     return pago
 
 
 @router.patch("/api/pagos/{pago_id}/rechazar", response_model=PagoOut)
-def pagos_rechazar(pago_id: str, user=Depends(get_current_user), db: Session = Depends(get_db)):
+def pagos_rechazar(pago_id: str, user=Depends(require_empresa_context), db: Session = Depends(get_db)):
     pago = get_pago_or_404(db, pago_id)
     pago = rechazar_pago(db, pago)
     return pago

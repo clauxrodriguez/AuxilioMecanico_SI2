@@ -379,12 +379,14 @@ def delete_role(db: Session, role: Rol) -> None:
 # Empleados CRUD
 # -----------------------------
 
-def _validate_optional_fk(db: Session, model: type[Cargo], model_id: str | None, name: str) -> str | None:
+def _validate_optional_fk(db: Session, model: type[Cargo], model_id: str | None, name: str, empresa_id: str) -> str | None:
     if not model_id or (isinstance(model_id, str) and model_id.strip() == ""):
         return None
     row = db.get(model, model_id)
     if not row:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"{name} no encontrado")
+    if hasattr(row, 'empresa_id') and row.empresa_id != empresa_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"{name} no pertenece a tu empresa")
     return model_id
 
 
@@ -397,6 +399,11 @@ def _validate_role_ids(db: Session, role_ids: list[str], empresa_id: str) -> lis
     missing = [rid for rid in role_ids if rid not in found]
     if missing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Roles no válidos para la empresa: {', '.join(missing)}")
+        
+    invalid_roles = [r.nombre for r in roles if r.nombre.strip().upper() not in ("GERENTE", "TECNICO")]
+    if invalid_roles:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Solo se permiten roles GERENTE o TECNICO. Roles inválidos: {', '.join(invalid_roles)}")
+        
     return roles
 
 
@@ -500,7 +507,7 @@ def create_empleado(db: Session, payload: EmpleadoCreate, empresa_id: str, foto_
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Este correo electrónico ya está en uso")
 
     role_rows = _validate_role_ids(db, payload.roles, empresa_id)
-    cargo_id = _validate_optional_fk(db, Cargo, payload.cargo, "Cargo")
+    cargo_id = _validate_optional_fk(db, Cargo, payload.cargo, "Cargo", empresa_id)
 
     pending_username = _generate_pending_username(payload.email)
     user = User(
@@ -608,7 +615,7 @@ def update_empleado(db: Session, empleado: Empleado, payload: EmpleadoUpdate, fo
         empleado.sueldo = payload.sueldo
 
     if payload.cargo is not None:
-        empleado.cargo_id = _validate_optional_fk(db, Cargo, payload.cargo, "Cargo")
+        empleado.cargo_id = _validate_optional_fk(db, Cargo, payload.cargo, "Cargo", empleado.empresa_id)
 
     if foto_path is not None:
         empleado.foto_perfil = foto_path

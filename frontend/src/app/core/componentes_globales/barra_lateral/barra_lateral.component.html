@@ -30,16 +30,32 @@
     <a routerLink="/app/roles" routerLinkActive="active">Roles y permisos</a>
     <a routerLink="/app/taller/configuracion" routerLinkActive="active">Configuración</a>
   </nav>
+  <nav *ngIf="!auth.isClient">
+    <ng-container *ngIf="isAdminRole || isGerenteRole || hasAdminPermission">
+      <a routerLink="/app/admin/solicitudes" routerLinkActive="active">Solicitudes de auxilio</a>
+      <a routerLink="/app/admin/notificaciones" routerLinkActive="active">Notificaciones</a>
+      <a routerLink="/app/empleados" routerLinkActive="active" *ngIf="isAdminRole || isGerenteRole || !isTecnicoRole">Empleados / Técnicos</a>
+      <a routerLink="/app/cargos" routerLinkActive="active" *ngIf="isAdminRole || isGerenteRole || !isTecnicoRole">Cargos</a>
+      <a routerLink="/app/taller/ubicacion" routerLinkActive="active">Ubicación del taller</a>
+      <a routerLink="/app/servicios" routerLinkActive="active" *ngIf="isAdminRole || isGerenteRole || !isTecnicoRole">Servicios</a>
+      <a routerLink="/app/clientes" routerLinkActive="active">Clientes</a>
+      <a routerLink="/app/vehiculos" routerLinkActive="active">Vehículos atendidos</a>
+      <a routerLink="/app/taller/pagos" routerLinkActive="active" *ngIf="isAdminRole || isGerenteRole">Pagos / Comisiones</a>
+      <a routerLink="/app/taller/reportes" routerLinkActive="active" *ngIf="isAdminRole || isGerenteRole">Reportes</a>
+      <a routerLink="/app/roles" routerLinkActive="active" *ngIf="isAdminRole">Roles y permisos</a>
+      <a routerLink="/app/taller/configuracion" routerLinkActive="active" *ngIf="isAdminRole || isGerenteRole || !isTecnicoRole">Configuración</a>
+    </ng-container>
 
-  <nav *ngIf="!auth.isClient && !auth.isAdmin">
-    <a routerLink="/app/empleado/perfil" routerLinkActive="active">Mi perfil</a>
-    <a routerLink="/app/empleado/asignaciones" routerLinkActive="active">Mis asignaciones</a>
+    <a routerLink="/app/empleado/asignaciones" routerLinkActive="active" *ngIf="isTecnicoRole">Mis asignaciones</a>
+    
+    <a *ngIf="isAdminRole || hasAdminPermission" routerLink="/app/admin/perfil" routerLinkActive="active">Mi perfil</a>
+    <a *ngIf="!isAdminRole && !hasAdminPermission" routerLink="/app/empleado/perfil" routerLinkActive="active">Mi perfil</a>
   </nav>
 
   <nav *ngIf="auth.isClient">
-    <a routerLink="/app/cliente/perfil" routerLinkActive="active">Mi perfil</a>
     <a routerLink="/app/incidentes" routerLinkActive="active">Solicitar Auxilio</a>
     <a routerLink="/app/cliente/historial" routerLinkActive="active">Seguimiento de Solicitud</a>
+    <a routerLink="/app/cliente/perfil" routerLinkActive="active">Mi perfil</a>
   </nav>
 
   <button class="btn btn-ghost" (click)="logout()">Cerrar sesion</button>

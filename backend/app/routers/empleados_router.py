@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import AsignacionServicio, Empresa, Servicio, User
 from app.db.session import get_db
-from app.deps.auth import get_base_url, get_current_user, require_permission, resolve_tenant_empresa_id
+from app.deps.auth import get_base_url, get_current_user, require_permission, get_current_tenant_empresa_id, require_empresa_context
 from app.schemas.empleado import MiAsignacionOut
 from app.schemas.empleado import EmpleadoCreate, EmpleadoOut, EmpleadoUpdate
 from app.services.file_storage import save_profile_image
@@ -86,8 +86,7 @@ def _parse_payload(request: Request) -> str:
 
 
 def _resolve_target_empresa_id(db: Session, user: User) -> str:
-    empleado = resolve_employee(db, user)
-    empresa_id = resolve_tenant_empresa_id(user, empleado)
+    empresa_id = get_current_tenant_empresa_id(db, user)
     if empresa_id:
         return empresa_id
 
@@ -100,11 +99,10 @@ def _resolve_target_empresa_id(db: Session, user: User) -> str:
 @router.get("/", response_model=list[EmpleadoOut])
 def empleados_list(
     request: Request,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_empresa_context),
     db: Session = Depends(get_db),
 ) -> list[EmpleadoOut]:
-    empleado = resolve_employee(db, user)
-    empresa_id = resolve_tenant_empresa_id(user, empleado)
+    empresa_id = get_current_tenant_empresa_id(db, user)
     rows = list_empleados(db, empresa_id, exclude_user_id=user.id, exclude_admin_roles=True)
     base_url = get_base_url(request)
     return [_serialize_empleado(row, base_url) for row in rows]
@@ -113,7 +111,7 @@ def empleados_list(
 @router.get("/me/", response_model=EmpleadoOut)
 def empleados_me(
     request: Request,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_empresa_context),
     db: Session = Depends(get_db),
 ) -> EmpleadoOut:
     empleado = resolve_employee(db, user)
@@ -124,11 +122,11 @@ def empleados_me(
 
 @router.get("/me/asignaciones", response_model=list[MiAsignacionOut])
 def empleados_mis_asignaciones(
-        user: User = Depends(get_current_user),
+        user: User = Depends(require_empresa_context),
         db: Session = Depends(get_db),
 ) -> list[MiAsignacionOut]:
         empleado = resolve_employee(db, user)
-        empresa_id = resolve_tenant_empresa_id(user, empleado)
+        empresa_id = get_current_tenant_empresa_id(db, user)
 
         stmt = (
                 select(AsignacionServicio)
@@ -174,11 +172,10 @@ def empleados_mis_asignaciones(
 def empleados_retrieve(
     empleado_id: str,
     request: Request,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_empresa_context),
     db: Session = Depends(get_db),
 ) -> EmpleadoOut:
-    empleado = resolve_employee(db, user)
-    empresa_id = resolve_tenant_empresa_id(user, empleado)
+    empresa_id = get_current_tenant_empresa_id(db, user)
     row = get_empleado_or_404(db, empleado_id, empresa_id)
     return _serialize_empleado(row, get_base_url(request))
 
@@ -215,8 +212,7 @@ async def empleados_update(
     user: User = Depends(require_permission("manage_empleado")),
     db: Session = Depends(get_db),
 ) -> EmpleadoOut:
-    empleado_actor = resolve_employee(db, user)
-    empresa_id = resolve_tenant_empresa_id(user, empleado_actor)
+    empresa_id = get_current_tenant_empresa_id(db, user)
     target = get_empleado_or_404(db, empleado_id, empresa_id)
 
     mode = _parse_payload(request)
@@ -241,8 +237,7 @@ def empleados_delete(
     user: User = Depends(require_permission("manage_empleado")),
     db: Session = Depends(get_db),
 ) -> Response:
-    empleado_actor = resolve_employee(db, user)
-    empresa_id = resolve_tenant_empresa_id(user, empleado_actor)
+    empresa_id = get_current_tenant_empresa_id(db, user)
     target = get_empleado_or_404(db, empleado_id, empresa_id)
     delete_empleado(db, target)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

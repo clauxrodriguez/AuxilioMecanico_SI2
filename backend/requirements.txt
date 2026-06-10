@@ -11,3 +11,11 @@ alembic==1.13.2
 firebase-admin==7.4.0
 geoalchemy2==0.20.0
 
+# --- Dependencias añadidas según el README ---
+cloudinary==1.41.0
+openai==1.61.0
+
+# --- Dependencias para testing ---
+pytest
+pytest-asyncio
+httpx

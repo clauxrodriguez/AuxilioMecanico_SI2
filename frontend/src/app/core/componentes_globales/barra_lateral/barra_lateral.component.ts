@@ -28,6 +28,18 @@ export class SidebarComponent implements OnInit {
     }
   }
 
+  get isAdminRole(): boolean {
+    return this.auth.isAdmin || this.auth.hasRole('Admin') || this.auth.hasRole('admin') || this.auth.hasRole('Administrador');
+  }
+
+  get isGerenteRole(): boolean {
+    return this.auth.hasRole('Gerente') || this.auth.hasRole('gerente');
+  }
+
+  get isTecnicoRole(): boolean {
+    return this.auth.hasRole('Tecnico') || this.auth.hasRole('tecnico') || this.auth.hasRole('Técnico');
+  }
+
   get hasAdminPermission(): boolean {
     return this.auth.hasPermission('manage_empleado') || 
            this.auth.hasPermission('manage_rol') || 

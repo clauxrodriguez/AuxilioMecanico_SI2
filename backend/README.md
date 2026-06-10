@@ -1,237 +1,111 @@
-# Backend FastAPI - Gestion de Usuarios
+# Backend - AuxilioMecánico SI2
 
-API de gestion de usuarios para AuxilioMecanico, construida con FastAPI + SQLAlchemy + Alembic.
+Este es el backend principal de la aplicación **AuxilioMecánico**, desarrollado en **FastAPI**, **SQLAlchemy** y **Alembic**. Proporciona toda la lógica de negocio, autenticación de usuarios, gestión de incidentes y seguimiento en tiempo real de técnicos y servicios.
 
-## Estructura actual
+---
 
-```text
-backend/
-  alembic.ini
-  requirements.txt
-  .env.example
-  alembic/
-    env.py
-    versions/
-      20260415_01_initial_schema.py
-      20260415_02_seed_default_permissions.py
-  app/
-    main.py
-    core/
-      config.py
-      security.py
-    db/
-      models.py
-      session.py
-    deps/
-      auth.py
-    routers/
-      auth.py
-      empleados.py
-      permisos.py
-      roles.py
-    schemas/
-      auth.py
-      common.py
-      empleado.py
-      permiso.py
-      register.py
-      role.py
-      theme.py
-    services/
-      auth_service.py
-      file_storage.py
-      permission_service.py
-      user_management.py
-```
+## 📚 Documentación y Referencias
 
-## Requisitos
+Para un entendimiento completo del sistema, la arquitectura y los flujos de trabajo, consulta los siguientes documentos clave:
 
-1. Python 3.11 o superior.
-2. PostgreSQL disponible.
-3. Estar ubicado en la carpeta `backend/` para ejecutar los comandos.
+- [**FLUJOS_OPERATIVOS.md**](./FLUJOS_OPERATIVOS.md): Detalla cómo se mueven los datos a través del sistema, desde el registro de un cliente hasta el cierre de un servicio de auxilio mecánico, pasando por la asignación de técnicos y el seguimiento GPS en tiempo real.
+- [**SCHEMA_REFERENCE.md**](./SCHEMA_REFERENCE.md): Contiene el modelo completo de la base de datos, relaciones entre tablas (usuarios, clientes, empresas, empleados, incidentes, asignaciones, etc.), enumeraciones de estado y validaciones de negocio.
+- [**MIGRATION_FCM_TOKEN.md**](./MIGRATION_FCM_TOKEN.md): Explica la migración específica realizada para añadir soporte de notificaciones push (FCM) a los clientes.
 
-## Instalacion y configuracion (paso a paso)
+---
 
-1. Entrar a la carpeta del backend.
+## 🚀 Funcionalidades Principales (Basado en los Routers)
 
-```powershell
-cd backend
-```
+El sistema expone las siguientes funcionalidades a través de sus rutas (routers):
 
-2. Crear y activar entorno virtual.
+### 1. 🔐 Autenticación y Registro (`autenticacion_router.py`)
+Manejo seguro de sesiones y usuarios con JWT.
+- **Login y Tokens:** Obtención (`/token/`) y refresco (`/token/refresh/`) de tokens JWT.
+- **Registro Multipaso:** Registro de empresas (`/register/company/`), administradores (`/register/admin/`) y clientes (`/register/client/`).
+- **Invitaciones:** Activación de cuentas de empleados por invitación (`/employee-invitations/activate/`).
+- **Notificaciones Push:** Actualización del FCM Token (`/fcm-token`) para recibir alertas en la app móvil.
+- **Sesión actual:** Obtención de información del usuario autenticado y sus permisos (`/me`, `/my-permissions/`).
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-```
+### 2. 🆘 Gestión de Incidentes y Tracking (`incidentes_router.py`)
+El núcleo operativo de la plataforma para atender emergencias.
+- **Creación y Listado:** Los clientes pueden crear incidentes de auxilio mecánico con ubicación, tipo de problema y evidencias.
+- **Técnicos Cercanos:** Búsqueda de técnicos disponibles en base a la ubicación (`/tecnicos/disponibles`).
+- **Asignación Operativa:** Los despachadores asignan un técnico a un incidente (`/asignacion`).
+- **Seguimiento en Tiempo Real (GPS):** 
+  - Actualización constante de la ubicación del técnico (`/tecnicos/mi-ubicacion`, `/tecnico/ubicacion`).
+  - Consulta de tracking y **WebSockets** (`/ws/tracking`) para seguimiento en vivo en el mapa.
+- **Transiciones de Estado:** Actualización del estado del incidente (pendiente, en camino, atendido, etc.).
+- **Diagnósticos y Evidencias:** Los técnicos pueden subir diagnósticos, textos, fotos (con soporte de subida a Cloudinary/S3) y notas de audio que se transcriben automáticamente.
 
-3. Instalar dependencias.
+### 3. 👥 Clientes y sus Vehículos (`clientes_router.py` y `vehiculos_router.py`)
+- **Gestión de Perfil:** Visualización y actualización del perfil del cliente autenticado (`/me`).
+- **Vehículos:** CRUD de vehículos del cliente, permitiendo definir un vehículo como `principal`.
+- **Historial:** Consulta del historial de servicios del cliente y validación SMS.
+- **Operativo Vehículos:** Gestión de vehículos desde el backoffice (actualización, eliminación y listado de vehículos atendidos).
 
-```powershell
-pip install -r requirements.txt
-```
+### 4. 🏢 Empresas, Empleados y Cargos (`empresas_router.py`, `empleados_router.py`, `cargos_router.py`)
+- **Gestión del Taller:** Información de la empresa/taller prestador del servicio.
+- **Personal:** CRUD de empleados, asignación de cargos, definición de sueldos y disponibilidad.
+- **Cargos:** Gestión del catálogo de cargos del taller.
 
-4. Crear archivo de variables de entorno.
+### 5. 🛠️ Servicios Ofrecidos (`servicios_router.py`)
+- **Catálogo de Servicios:** Gestión de los tipos de auxilio mecánico que la empresa provee (Grúa, Cambio de Batería, Pinchazo, Mecánica General, etc.).
 
-```powershell
-Copy-Item .env.example .env
-```
+### 6. 🛡️ Roles y Permisos (`roles_router.py`, `permisos_router.py`)
+- Sistema de control de acceso basado en roles (RBAC).
+- Asignación de permisos granulares a roles y roles a empleados.
 
-5. Ajustar valores importantes en `.env`:
+### 7. 💳 Pagos y 🔔 Notificaciones (`pagos_router.py`, `notificaciones_router.py`)
+- **Pagos:** Flujo de creación, listado, confirmación y rechazo de pagos asociados a asignaciones de servicio.
+- **Alertas:** Manejo de notificaciones en el sistema para eventos importantes (asignación de técnico, servicio completado, etc.).
 
-- `DATABASE_URL`: conexion a PostgreSQL.
-- `SECRET_KEY`: clave segura para JWT.
-- `CORS_ORIGINS`: origenes permitidos del frontend.
-- `MEDIA_ROOT`: ruta donde se guardan archivos subidos.
-- `FRONTEND_BASE_URL`: URL del frontend para construir enlaces de invitacion.
+---
 
-## Configuracion SMTP (invitaciones de empleados)
+## 💻 Instalación y Configuración Local
 
-Para que el correo de invitacion funcione, completa estas variables en `.env`:
+### Requisitos Previos
+1. **Python 3.10+**
+2. **PostgreSQL** instalado y corriendo.
+3. Estar ubicado en la carpeta `backend/`.
 
-- `SMTP_HOST`
-- `SMTP_PORT`
-- `SMTP_USERNAME`
-- `SMTP_PASSWORD`
-- `SMTP_USE_TLS`
-- `SMTP_FROM_EMAIL`
+### Pasos
 
-Ejemplo (Gmail con App Password):
+1. **Entorno Virtual**
+   ```powershell
+   python -m venv .venv
+   .\.venv\Scripts\Activate.ps1
+   ```
 
-```env
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USERNAME=tu_correo@gmail.com
-SMTP_PASSWORD=tu_app_password
-SMTP_USE_TLS=true
-SMTP_FROM_EMAIL=tu_correo@gmail.com
-FRONTEND_BASE_URL=http://localhost:4200
-```
+2. **Instalar Dependencias**
+   ```powershell
+   pip install -r requirements.txt
+   # Instalar utilidades multimedia
+   pip install cloudinary openai python-multipart
+   ```
 
-Notas:
+3. **Variables de Entorno**
+   Copia el archivo de ejemplo para crear tu configuración:
+   ```powershell
+   Copy-Item .env.example .env
+   ```
+   Asegúrate de configurar en el `.env`:
+   - `DATABASE_URL`: Conexión a tu PostgreSQL.
+   - `SECRET_KEY`: Clave secreta para JWT.
+   - `SMTP_*`: Configuración de correo para enviar invitaciones a empleados.
+   - Credenciales de Cloudinary (si usas subida de fotos en la nube).
 
-- Con Gmail debes usar App Password (no la contrasena normal).
-- Si `SMTP_HOST` esta vacio, el backend crea el empleado pero no envia correo.
-- El enlace de invitacion usa la ruta frontend: `/activate-invite?token=...`.
+4. **Base de Datos y Migraciones**
+   Aplica el esquema y las migraciones iniciales a PostgreSQL:
+   ```powershell
+   alembic upgrade head
+   ```
 
-## Migraciones (Alembic)
+5. **Levantar el Servidor**
+   ```powershell
+   uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
+   ```
 
-Aplicar migraciones pendientes:
-
-```powershell
-alembic upgrade head
-```
-
-Crear una nueva migracion (si cambias modelos):
-
-```powershell
-alembic revision --autogenerate -m "descripcion_del_cambio"
-alembic upgrade head
-```
-
-## Ejecutar la API
-
-Con el entorno virtual activo y desde `backend/`:
-## instala cloudinary 
-pip install cloudinary openai python-multipart
-```powershell
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
-```
-
-## Endpoints principales
-
-- Auth:
-  - `POST /api/auth/token/` - obtener tokens (login)
-  - `POST /api/auth/token/refresh/` - refrescar token de acceso
-  - `POST /api/auth/register/company/` - registrar empresa (paso 1)
-  - `POST /api/auth/register/admin/` - completar registro admin (paso final)
-  - `POST /api/auth/employee-invitations/activate/` - activar invitación de empleado
-  - `POST /api/auth/register/` - registro combinado (empresa + admin)
-
-  - `GET /api/auth/my-permissions/` - permisos del usuario autenticado
-- Empleados:
-  - `GET /api/empleados/`
-  - `GET /api/empleados/{empleado_id}/`
-  - `POST /api/empleados/`
-  - `PUT/PATCH /api/empleados/{empleado_id}/`
-  - `DELETE /api/empleados/{empleado_id}/`
-- Roles:
-  - `GET /api/roles/`
-  - `GET /api/roles/{role_id}/`
-  - `POST /api/roles/`
-  - `PUT/PATCH /api/roles/{role_id}/`
-  - `DELETE /api/roles/{role_id}/`
-- Permisos:
-  - `GET /api/permisos/`
-  - `GET /api/permisos/{permiso_id}/`
-  - `POST /api/permisos/`
-  - `PUT/PATCH /api/permisos/{permiso_id}/`
-  - `DELETE /api/permisos/{permiso_id}/`
-
-- Cargos:
-  - `GET /api/cargos/`
-  - `GET /api/cargos/{cargo_id}/`
-  - `POST /api/cargos/`
-  - `PUT/PATCH /api/cargos/{cargo_id}/`
-  - `DELETE /api/cargos/{cargo_id}/`
-
-- Servicios:
-  - `GET /api/servicios/`
-  - `GET /api/servicios/{servicio_id}/`
-  - `POST /api/servicios/`
-  - `PUT/PATCH /api/servicios/{servicio_id}/`
-  - `DELETE /api/servicios/{servicio_id}/`
-
-- Clientes (móvil y panel):
-  - POST /api/auth/register/client/ - registro de cliente
-  - `GET /api/clientes/` - listar clientes (permiso)
-  - `GET /api/clientes/me/` - obtener cliente asociado al usuario autenticado
-  - `PUT /api/clientes/me/` - actualizar datos del cliente autenticado
-  - `GET /api/clientes/me/vehiculos` - listar vehículos del cliente autenticado
-  - `POST /api/clientes/me/vehiculos` - registrar nuevo vehículo para el cliente autenticado
-  - `GET /api/clientes/me/vehiculos/{vehiculo_id}` - detalle de vehículo del cliente
-  - `DELETE /api/clientes/me/vehiculos/{vehiculo_id}` - borrar vehículo del cliente
-  - `GET /api/clientes/me/vehiculos/count` - contar vehículos del cliente
-  - `GET /api/clientes/{cliente_id}/` - obtener cliente por id
-  - `PUT /api/clientes/{cliente_id}/` - actualizar cliente (admin)
-  - `GET /api/clientes/{cliente_id}/historial` - historial relacionado al cliente
-  - `POST /api/clientes/verificar-sms` - flujo de verificación SMS (enviar/validar código)
-
-- Vehículos (operativo/backoffice):
-  - `PUT /api/vehiculos/{vehiculo_id}/` - actualizar vehículo
-  - `DELETE /api/vehiculos/{vehiculo_id}/` - eliminar vehículo
-  - `PATCH /api/vehiculos/{vehiculo_id}/principal` - marcar vehículo principal
-  - `GET /api/vehiculos/atendidos` - listar vehículos con incidentes (personal)
-
-- Incidentes:
-  - `GET /api/incidentes/` - listar incidentes
-  - `POST /api/incidentes/` - crear incidente (cliente autenticado)
-  - `GET /api/incidentes/{incidente_id}/` - detalle
-  - `PATCH /api/incidentes/{incidente_id}/` - actualizar incidente (operativo)
-  - `POST /api/incidentes/{incidente_id}/asignacion` - asignar técnico
-  - `PATCH /api/incidentes/tecnicos/mi-ubicacion` - actualizar ubicación técnico
-  - `PATCH /api/incidentes/{incidente_id}/tecnico/ubicacion` - actualizar ubicación técnico para incidente
-  - `GET /api/incidentes/{incidente_id}/tracking` - tracking del incidente
-  - `PATCH /api/incidentes/{incidente_id}/estado` - actualizar solo estado (móvil)
-  - `POST /api/incidentes/{incidente_id}/diagnosticos` - agregar diagnóstico
-  - `GET /api/incidentes/{incidente_id}/diagnosticos` - listar diagnósticos
-  - `POST /api/incidentes/{incidente_id}/evidencias` - agregar evidencia (url/texto)
-  - `POST /api/incidentes/{incidente_id}/evidencias/upload` - subir archivo (multipart)
- 
-- Pagos:
-  - `POST /api/asignaciones/{asignacion_id}/pago` - crear pago para una asignación
-  - `GET /api/pagos/` - listar pagos (para empleados/empresa o para cliente autenticado)
-  - `GET /api/pagos/{pago_id}` - obtener detalle de un pago
-  - `PATCH /api/pagos/{pago_id}/confirmar` - confirmar pago
-  - `PATCH /api/pagos/{pago_id}/rechazar` - rechazar pago
-
-## Verificacion rapida
-
-- Health check: `GET /health`
-- Swagger UI: `http://localhost:8001/docs`
-- ReDoc: `http://localhost:8001/redoc`
-
-## Notas
-
-- La app carga configuracion desde `.env`.
-- Alembic toma la URL de base de datos desde `app/core/config.py`.
+### 🧪 Verificación Rápida
+- **Health check:** `GET http://localhost:8001/health`
+- **Swagger UI (Documentación interactiva de la API):** `http://localhost:8001/docs`
+- **ReDoc:** `http://localhost:8001/redoc`

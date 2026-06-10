@@ -39,7 +39,7 @@
     </div>
   </form>
 
-  <table class="table" *ngIf="!isCreateView">
+  <table class="table" *ngIf="!isCreateView && roles.length > 0">
     <thead>
       <tr>
         <th>Rol</th>
@@ -60,5 +60,9 @@
       </tr>
     </tbody>
   </table>
+
+  <div *ngIf="!isCreateView && roles.length === 0" style="padding: 2rem; text-align: center; color: var(--muted);">
+    No hay roles registrados.
+  </div>
 </section>
 

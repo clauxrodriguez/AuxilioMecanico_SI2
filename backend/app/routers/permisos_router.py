@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import User
 from app.db.session import get_db
-from app.deps.auth import get_current_user, require_permission
+from app.deps.auth import get_current_user, require_permission, require_empresa_context
 from app.schemas.permiso import PermisoCreate, PermisoOut, PermisoUpdate
 from app.services.user_management import (
     create_permiso,
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/permisos", tags=["permisos"])
 
 @router.get("/", response_model=list[PermisoOut])
 def permisos_list(
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_empresa_context),
     db: Session = Depends(get_db),
 ) -> list[PermisoOut]:
     return list_permisos(db)
@@ -27,7 +27,7 @@ def permisos_list(
 @router.get("/{permiso_id}/", response_model=PermisoOut)
 def permisos_retrieve(
     permiso_id: str,
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_empresa_context),
     db: Session = Depends(get_db),
 ) -> PermisoOut:
     return get_permiso_or_404(db, permiso_id)
